@@ -17,7 +17,7 @@
   ::selection{background:#f3d9cf}
 
   /* ── 사이드바 ── */
-  .side{width:236px;flex:none;background:var(--sidebar);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:26px 18px}
+  .side{width:236px;flex:none;background:var(--sidebar);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:26px 18px;overflow-y:auto}
   .mark{font-family:var(--serif);font-size:20px;letter-spacing:.01em;margin-bottom:2px}
   .mark .ax{color:var(--accent)}
   .tag{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:26px}
@@ -481,7 +481,13 @@ function viewRead(){
   if(vid)h+=`<a href="${esc(url||('https://youtu.be/'+vid))}" target="_blank"><img src="https://img.youtube.com/vi/${vid}/hqdefault.jpg" style="width:100%;max-width:480px;border-radius:10px;margin-bottom:14px;display:block;background:#eee"></a>`;
   h+=`<div style="font-family:var(--serif);font-size:23px;line-height:1.35;margin-bottom:6px">${esc(c.front['title']||'')}</div>`;
   h+=`<div class="mt" style="margin-bottom:14px">${esc(src.split('/').slice(0,2).join(' / ').slice(0,60))}${url?` · <a href="${esc(url)}" target="_blank" style="color:var(--accent)">유튜브 ↗</a>`:''}</div>`;
-  h+=`<div style="white-space:pre-wrap;font-size:14.5px;line-height:1.8;border-top:1px solid var(--line);padding-top:14px;max-height:360px;overflow:auto">${esc((c.body||'(본문 없음 — 제목·메타만 수집됨)').slice(0,4000))}</div>`;
+  const sm=(c.body||'').match(/## 🎬 큐레이션 요약\s*([\s\S]*?)(?=\n## |$)/);
+  const hasSum=!!sm;
+  const bodyShow=hasSum?sm[1].trim():(c.body||'(아직 요약 없음 — 아래 「블로그 요약 생성」을 눌러줘)');
+  h+=`<div style="white-space:pre-wrap;font-size:14.5px;line-height:1.85;border-top:1px solid var(--line);padding-top:14px">${esc(bodyShow.slice(0,9000))}</div>`;
+  const tr=(c.body||'').match(/## 📄 전체 스크립트\s*([\s\S]*?)(?=\n## |$)/);
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 4px">${hasSum?'':`<button class="act" id="rdSum" style="margin-top:0">📝 블로그 요약 생성</button>`}<button class="act" id="rdScript" style="margin-top:0;background:transparent;color:var(--ink)">📄 ${tr?(state.readScript?'스크립트 숨기기':'스크립트 보기'):'전체 스크립트 가져오기'}</button></div><div id="rdGenMsg" class="mt" style="margin-bottom:8px"></div>`;
+  if(state.readScript&&tr)h+=`<div style="white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:var(--ink2);max-height:320px;overflow:auto;background:#f6f2ea;padding:12px 14px;border-radius:8px;margin-bottom:10px">${esc(tr[1].trim())}</div>`;
   h+=`<div class="sec">📌 내 메모 <span class="note">이게 카드 재료가 돼</span></div><div class="rule"></div>`;
   h+=`<input type="text" id="rdReason" class="ph" placeholder="이유 — 왜 좋았나?" value="${esc(reasonOf(c))}">`;
   h+=`<input type="text" id="rdOut" placeholder="아웃풋 — 어디 쓸까 (RE:KIT/릴스/클래스/컨설팅…)" value="${esc(c.front['output']&&c.front['output']!=='미정'?c.front['output']:'')}" style="margin-top:12px">`;
@@ -489,7 +495,11 @@ function viewRead(){
   return h;
 }
 function wireRead(){
-  main.querySelectorAll('[data-read]').forEach(el=>el.onclick=()=>{state.readSel=el.dataset.read;renderView();});
+  main.querySelectorAll('[data-read]').forEach(el=>el.onclick=()=>{state.readSel=el.dataset.read;state.readScript=false;renderView();});
+  const genVid=c=>((c.front['source']||'').match(/(?:v=|youtu\.be\/|shorts\/)([A-Za-z0-9_-]{6,})/)||[])[1];
+  const gen=async(endpoint,label,after)=>{const c=(state.content||[]).find(x=>x.name===state.readSel);if(!c)return;const vid=genVid(c);const msg=$('#rdGenMsg');if(!vid){if(msg)msg.textContent='이 노트에 유튜브 링크가 없어';return;}if(msg)msg.innerHTML='⏳ '+label+'… (1~2분, 기다려줘)';try{const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:'https://youtu.be/'+vid,file:c.name})});const j=await r.json();if(j.ok){state.content=await readContent(state.root);if(after)after();renderView();}else if(msg)msg.innerHTML='<span style="color:var(--accent)">실패: '+esc(j.msg||'')+'</span>';}catch(e){if(msg)msg.innerHTML='<span style="color:var(--accent)">연결 실패: '+esc(e.message)+'</span>';}};
+  const gsum=$('#rdSum');if(gsum)gsum.onclick=()=>gen('/summarize','블로그 요약 생성');
+  const gscr=$('#rdScript');if(gscr)gscr.onclick=()=>{const c=(state.content||[]).find(x=>x.name===state.readSel);if(c&&/## 📄 전체 스크립트/.test(c.raw)){state.readScript=!state.readScript;renderView();}else gen('/transcript','전체 스크립트 가져오기',()=>{state.readScript=true;});};
   const add=$('#rdAdd');if(add)add.onclick=async()=>{const url=($('#rdUrl')||{}).value||'';const msg=$('#rdAddMsg');if(!url.trim()){if(msg)msg.textContent='링크를 붙여넣어줘';return;}if(msg)msg.innerHTML='🎬 자막 가져와 블로그 요약 중… (1~2분, 기다려줘)';add.disabled=true;try{const r=await fetch('/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});const j=await r.json();if(j.ok){state.content=await readContent(state.root);state.readSel=null;renderView();}else if(msg)msg.innerHTML='<span style="color:var(--accent)">실패: '+esc(j.msg||'')+'</span>';}catch(e){if(msg)msg.innerHTML='<span style="color:var(--accent)">연결 실패: '+esc(e.message)+'</span>';}add.disabled=false;};
   const b=$('#rdBack');if(b)b.onclick=()=>{state.readSel=null;renderView();};
   const s=$('#rdSave');if(s)s.onclick=async()=>{const c=(state.content||[]).find(x=>x.name===state.readSel);if(!c)return;if(!state.writable){$('#rdMsg').textContent=' 쓰기권한 필요(볼트 편집 허용)';return;}try{await saveMemo(c,($('#rdReason')||{}).value||'',($('#rdOut')||{}).value||'');$('#rdMsg').innerHTML=' <span style="color:var(--green)">✓ 볼트에 저장됨</span>';}catch(e){$('#rdMsg').textContent=' 실패: '+e.message;}};
