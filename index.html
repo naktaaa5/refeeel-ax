@@ -211,6 +211,7 @@
   <div class="nav" data-v="acct"><span class="ic">💰</span> 회계</div>
   <div class="nav" data-v="revc"><span class="ic">📊</span> 매출×콘텐츠</div>
   <div class="navsec">재윤 OS</div>
+  <div class="nav" data-v="exec"><span class="ic">📍</span> 이번 스프린트</div>
   <div class="nav" data-v="jaeyun"><span class="ic">🧭</span> 원칙·오늘</div>
   <div class="nav" data-v="learn"><span class="ic">📚</span> 학습</div>
   <div class="nav" data-v="read"><span class="ic">📺</span> 콘텐츠 읽기</div>
@@ -831,8 +832,25 @@ function viewRevContent(){
   }
   return h;
 }
-const VIEWS={brand:viewBrand,home:viewHome,consult:viewConsult,crm:viewCRM,kit:viewKit,reel:viewReel,cal:viewCal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ai:viewAi};
-const STATIC=['acct','revc','jaeyun','capture','learn','read','ai'];
+// ── 이번 스프린트(실행) — 재윤 OS 실행 대시보드 노트를 읽어 로드맵·체크리스트를 렌더 ──
+const EXEC_PATH=['00_대시보드'], EXEC_FILE='재윤 OS — 실행 대시보드.md';
+async function loadExec(root){try{const dir=await getDir(root,EXEC_PATH);const h=await dir.getFileHandle(EXEC_FILE);const raw=await(await h.getFile()).text();return{raw,handle:h,path:EXEC_PATH.join('/')+'/'+EXEC_FILE};}catch(e){return{error:e.message};}}
+function viewExec(){
+  if(state.exec===undefined){
+    if(!state.execLoading){state.execLoading=true;loadExec(state.root).then(x=>{state.exec=x;state.execLoading=false;renderView();});}
+    return head('Execution','이번 스프린트','로드맵 · 체크리스트 — 매일 본다.')+'<div class="empty" style="padding:44px 0">실행판 읽는 중…</div>';
+  }
+  const e=state.exec;
+  let h=head('Execution','이번 스프린트','로드맵 · 체크리스트 — 매일 본다. (데이터 = 재윤 OS 실행 대시보드 노트)');
+  if(e.error)return h+`<div class="warn">실행판 노트를 못 찾았어요 (<code>${esc(EXEC_PATH.join('/')+'/'+EXEC_FILE)}</code>). 볼트 루트(낙타)를 골랐는지 확인하세요.</div>`;
+  const vault=(state.root&&state.root.name)||'낙타';
+  h+=`<a class="ovopen" target="_blank" href="obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(EXEC_PATH.join('/')+'/'+EXEC_FILE.replace(/\.md$/,''))}" style="margin:2px 0 22px">옵시디언에서 열기(체크는 여기서) ↗</a>`;
+  const body=cardBody(e.raw||'').replace(/^(\s*[-*]\s+)\[ \]\s+/gm,'$1☐ ').replace(/^(\s*[-*]\s+)\[[xX]\]\s+/gm,'$1☑ ');
+  h+=`<div class="brandbody">`+mdLite(body)+`</div>`;
+  return h;
+}
+const VIEWS={brand:viewBrand,home:viewHome,consult:viewConsult,crm:viewCRM,kit:viewKit,reel:viewReel,cal:viewCal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ai:viewAi};
+const STATIC=['acct','revc','exec','jaeyun','capture','learn','read','ai'];
 function renderView(){
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.v===state.view));
   if(!state.root)return;
@@ -896,7 +914,7 @@ $('#pick').onclick=async()=>{
   if(state.saved){try{await connect(state.saved);return;}catch(e){}}  // 저장된 볼트 재연결(폴더 탐색 없이 권한만)
   if(!window.showDirectoryPicker){main.innerHTML='<div class="gate"><div class="warn">이 페이지에선 폴더 열기가 안 돼요.<br>① 크롬·엣지인지 ② 주소가 <code>http://localhost</code>인지 확인 (file:// 은 막힘).</div></div>';return;}
   try{await connect(await window.showDirectoryPicker());}catch(e){if(e.name!=='AbortError')main.innerHTML='<div class="gate"><div class="warn">'+esc(e.message||e.name)+'<br><span style="color:var(--mut);font-size:12px">file:// 이면 localhost로 열어야 해요.</span></div></div>';}};
-$('#reload').onclick=async()=>{if(state.root){state.data=await loadData(state.root);state.cards=await readCards(state.root);state.acct=await readAcct(state.root);state.content=await readContent(state.root);state.learnQueue=undefined;renderView();}};
+$('#reload').onclick=async()=>{if(state.root){state.data=await loadData(state.root);state.cards=await readCards(state.root);state.acct=await readAcct(state.root);state.content=await readContent(state.root);state.learnQueue=undefined;state.exec=undefined;renderView();}};
 document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{state.view=n.dataset.v;renderView();});
 $('#ov').querySelectorAll('[data-close]').forEach(e=>e.onclick=closeOverlay);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeOverlay();});
