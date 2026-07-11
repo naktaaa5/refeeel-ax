@@ -138,9 +138,6 @@
   .kpi .big{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:8px 0 2px}
   .kpi .big .u{font-size:14px;font-weight:600;color:var(--ink-3);margin-left:3px}
   .kpi .spark{position:absolute;right:16px;bottom:16px;width:84px;height:34px;opacity:.9}
-  .delta{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:20px}
-  .delta.up{color:var(--good);background:rgba(31,157,87,.1)}
-  .delta.dn{color:var(--critical);background:rgba(229,72,77,.1)}
   .kpi.accent{background:linear-gradient(135deg,var(--accent-ink),var(--accent));border:none;color:#fff}
   .kpi.accent .lbl,.kpi.accent .big .u{color:rgba(255,255,255,.85)}
   .kpi.accent .delta{color:#fff;background:rgba(255,255,255,.22)}
@@ -296,6 +293,8 @@
   .scell-unit{font-size:13px;font-weight:500;color:var(--ink-3);margin-left:1px}
   .stat-note{display:block;font-size:11.5px;margin-top:3px;color:var(--ink-3)}
   .stat-note.warning{color:var(--warning)}
+  .stat-note.good{color:var(--good-text)}
+  .stat-note.serious{color:var(--serious)}
   .sec{font-size:15px;font-weight:700;margin:26px 0 2px;display:flex;align-items:baseline;gap:10px}
   .sec .note{font-size:12px;color:var(--ink-3);font-weight:500}
   .rule{height:1px;background:var(--surface-2);margin:10px 0 2px}
@@ -347,9 +346,6 @@
   .rxread{font-size:12px;color:var(--ink-3);background:var(--surface-2);border-radius:10px;padding:9px 13px;margin:12px 0 2px;line-height:1.65}
   .rxnote{font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.6}
   /* ── 릴스 서브탭 · Step 스테퍼 · 액션 카드 ── */
-  .rxsub{display:flex;gap:6px;margin:4px 0 2px;flex-wrap:wrap}
-  .rxsub .stab{padding:7px 16px;border-radius:999px;font-size:12.5px;font-weight:700;background:var(--surface-2);color:var(--ink-3);border:none;cursor:pointer}
-  .rxsub .stab.on{background:var(--accent);color:#fff}
   .rxstep{display:flex;margin-top:10px}
   .rxstep .st{flex:1;text-align:center;position:relative;min-width:0}
   .rxstep .st .dot{width:20px;height:20px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:var(--line);color:var(--ink-3);position:relative;z-index:1}
@@ -862,6 +858,9 @@ async function loadData(root){
 const head=(k,t,l)=>`<div class="page-head"><div class="kicker">${k}</div><h1 class="page-title">${t}</h1>${l?`<div class="page-sub">${l}</div>`:''}</div>`;
 const stat=(v,u,l,hero)=>`<div class="stat ${hero?'hero':''}"><div class="v">${v}${u?`<span class="u">${u}</span>`:''}</div><div class="l">${l}</div></div>`;
 const wrapStats=inner=>`<div class="pad" style="padding-top:0"><div class="stats">${inner}</div></div>`;
+/* ops .stat-row(PLAN §1.4·B4) — cells: [label,value,unit?,note?][]. wrapStats/stat()(카드 4장)의 대체판 —
+   한 카드 안 구분열로, kit/reel/queue/learn/read/lint 재스킨에서 공용 사용 */
+const statRow=cells=>`<div class="pad" style="padding-top:0"><div class="card" style="padding:16px 20px"><div class="stat-row">${cells.map(([label,val,unit,note])=>`<div class="scell"><span class="scell-label">${esc(label)}</span><span class="scell-value">${val}${unit?`<span class="scell-unit">${esc(unit)}</span>`:''}</span>${note?`<span class="stat-note">${esc(note)}</span>`:''}</div>`).join('')}</div></div></div>`;
 const padOpen='<div class="pad" style="padding-top:0">', padClose='</div>';
 
 /* ═══════════════ 개요(Overview) — Kravio 메인 대시보드 ═══════════════ */
@@ -1343,18 +1342,24 @@ function wireConsult(){
   ctSyncFromKV();   // 비번 있으면 KV 최신본으로 패치(다른 기기에서 추가한 할일 반영)
 }
 /* ═══════════════ RE:KIT ═══════════════ */
+/* kit 재스킨(PLAN §3.7, B4) — stat 4개→.stat-row, 목록→table 문법. 구조·데이터로직 불변 */
 function viewKit(d){
   const rows=d.kits.slice().sort((a,b)=>N(b.front['번호'])-N(a.front['번호']));
   const cat=c=>d.kits.filter(p=>String(p.front['category']||'').toLowerCase()===c).length;
   let h=head('Content Library','RE:KIT','발행한 실행 가이드.');
-  h+=wrapStats(stat(d.kits.length,'편','총 발행',1)+stat(cat('branding'),'','브랜딩')+stat(cat('marketing'),'','마케팅')+stat(cat('content'),'','콘텐츠'));
+  h+=statRow([['총 발행',d.kits.length,'편'],['브랜딩',cat('branding')],['마케팅',cat('marketing')],['콘텐츠',cat('content')]]);
   h+=padOpen+calMonthGrid(calEvents(d).filter(e=>e.kind==='kit'),'kit');
   const s=calState('kit','month');let list=rows,note='번호순';
   if(s.sel){const[yy,mm,dd]=s.sel.split('-').map(Number);list=rows.filter(p=>{const dt=pickDate(p.front['발행일']);return dt&&dkey(dt)===s.sel;});note=`📅 ${md(new Date(yy,mm,dd))} · <span data-clear="kit" style="color:var(--accent);cursor:pointer">전체보기</span>`;}
   h+=`<div class="sec">발행 목록 <span class="note">${note}</span></div><div class="rule"></div>`;
-  h+=list.map(p=>`<div class="item clk" data-note="${esc(p.path)}" style="grid-template-columns:42px 1fr auto">
-    <div class="idx">${esc(p.front['번호'])}</div><div class="ti">${esc(p.front['콘텐츠명']||'')}</div>
-    <div class="mt">${esc(p.front['category']||'')}</div></div>`).join('')||'<div class="empty">이 날짜엔 발행이 없어요</div>';
+  h+=`<div class="card"><table class="dt">
+    <thead><tr><th class="num">번호</th><th>콘텐츠명</th><th>카테고리</th></tr></thead>
+    <tbody>${list.map(p=>`<tr class="clk" data-note="${esc(p.path)}">
+      <td class="num">${esc(p.front['번호'])}</td>
+      <td><b style="color:var(--ink)">${esc(p.front['콘텐츠명']||'')}</b></td>
+      <td class="mt">${esc(p.front['category']||'')}</td>
+    </tr>`).join('')||`<tr><td colspan="3"><div class="empty">이 날짜엔 발행이 없어요</div></td></tr>`}</tbody>
+  </table></div>`;
   return h+padClose;
 }
 /* ═══════════════ 릴스 — "결정하는" 대시보드 (정본: 릴스대시보드_고도화_기획서 P1) ═══════════════ */
@@ -1469,7 +1474,8 @@ function reachDeltaByDay(rows){
 }
 const rxSum=(by,from,to)=>{let s=0;for(const k in by)if(k>=from&&k<=to)s+=by[k];return s;};
 const rxIso=n=>{const t=new Date();t.setDate(t.getDate()-n);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');};
-const rxDelta=(pct,lbl)=>pct==null?'':`<span class="delta ${pct>=0?'up':'dn'}">${pct>=0?'▲ +':'▼ '}${pct}% <span style="font-weight:500;opacity:.75">${lbl}</span></span>`;
+/* 실계산 델타만 잔존(가짜 델타와 다름 — 30일 도달 증분 실측치) — stat-note 문법으로(PLAN §3.7) */
+const rxDelta=(pct,lbl)=>pct==null?'':`<span class="stat-note ${pct>=0?'good':'serious'}">${pct>=0?'▲ +':'▼ '}${pct}% <span style="opacity:.75">${lbl}</span></span>`;
 const rxKpi=(lbl,big,unit,chgHtml,sparkVals,color)=>`<div class="card kpi"><div class="lbl">${lbl}</div><div class="big">${big}${unit?`<span class="u">${unit}</span>`:''}</div>${chgHtml||''}${sparkline(sparkVals||[],color||'var(--accent)')}</div>`;
 function rxCurve(snaps){ /* 수명곡선 — 도달 누적 라인 */
   if(!snaps||snaps.length<2)return '<div class="rxnote">스냅샷 2개 미만 — 수명곡선은 다음 수집부터.</div>';
@@ -1487,7 +1493,7 @@ function viewReel(d){
   const subt={today:'지금 뭘 해야 하나 — 계정 리듬 · 48시간 심사 · 다음 액션',step:'각 릴스가 어느 Step까지 갔나 — 관문 · 체류기간',list:'전체 릴스 — 캘린더 · 필터 · 정렬',pattern:'다음에 뭘 만들까 — 유기 ER · 저장률 · 소재×훅'}[pg];
   let h=head('Performance','릴스',subt);
   if(!n)return h+padOpen+'<div class="empty">릴스 데이터 없음</div>'+padClose;
-  h+=padOpen+`<div class="rxsub" style="margin-top:12px">${PGS.map(([k,l])=>`<button class="stab ${k===pg?'on':''}" data-rpg="${k}">${l}</button>`).join('')}</div>`;
+  h+=padOpen+`<div class="ptabs" style="padding:0;margin-top:12px">${PGS.map(([k,l])=>`<button class="ptab ${k===pg?'on':''}" data-rpg="${k}" role="tab" aria-selected="${k===pg}">${l}</button>`).join('')}</div>`;
   const seeds=all.filter(r=>r.seed);
   const avg=(arr,f)=>arr.length?arr.reduce((a,x)=>a+f(x),0)/arr.length:0;
   const chrono=all.slice().sort((a,b)=>(a.pub||0)-(b.pub||0));
@@ -1560,7 +1566,7 @@ function viewReel(d){
     h+=`<div class="grid kpis" style="margin-top:12px">`
       +rxKpi('유기 ER 평균 <span style="font-weight:500;color:var(--ink-3)">시딩 포함</span>',avg(all,r=>r.er).toFixed(1),'%','',chrono.slice(-10).map(r=>r.er),'var(--good)')
       +rxKpi('평균 저장률',avg(all,r=>r.saveR).toFixed(2),'%','',chrono.slice(-10).map(r=>r.saveR),'#3f6fb0')
-      +rxKpi('리드 (댓글 CTA)',num(leadsTot),'',`<span class="delta up">30일 +${num(l30)}</span>`,chrono.slice(-10).map(r=>r.leads),'#8d4fd3')
+      +rxKpi('리드 (댓글 CTA)',num(leadsTot),'',`<span class="stat-note good">▲ 30일 +${num(l30)}</span>`,chrono.slice(-10).map(r=>r.leads),'#8d4fd3')
       +`</div>`;
     h+=`<div class="rxread">읽는 법 — <b>유기 ER</b> = (좋아요+저장+일반댓글) ÷ 도달. "댓글에 ‘키워드’" 릴스의 댓글은 참여가 아니라 <b>리드</b>로 따로 셉니다. 시딩(${seeds.length}편)도 평균에 포함(태그로만 구분).</div>`;
     const best=(arr,f,fmt,lbl,hint)=>{const top=arr.slice().sort((a,b)=>f(b)-f(a)).slice(0,3).filter(x=>f(x)>0);
