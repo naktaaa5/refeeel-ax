@@ -1613,13 +1613,30 @@ function viewGcal(){
   return head('Schedule','전체 일정','구글 캘린더 — 개인 일정 포함 전체 스케줄.')+padOpen+grid+calList(ev,'gcal')+note+padClose;
 }
 
-/* ═══════════════ 재윤 OS ═══════════════ */
-const JY=['이해부터, 그다음 수집 — 넣기 전 "내 말 한 줄"','데이터와 인터페이스를 분리','만들기 전 GitHub부터 (찾아 튜닝)','모델보다 하네스를 의심','논술형 회상으로 이해 점검','클로드 코드를 손에 익힌다'];
+/* ═══════════════ 재윤 OS ═══════════════
+   원칙 정본은 볼트 노트 00_대시보드/재윤OS_원칙.md — 코드는 이 노트를 읽어 렌더한다(PLAN §4-7).
+   노트가 없거나(원격/모바일 모드 등) 읽기 실패하면 하드코딩 배열로 폴백(빅뱅 금지). */
+const JY_FALLBACK=['이해부터, 그다음 수집 — 넣기 전 "내 말 한 줄"','데이터와 인터페이스를 분리','만들기 전 GitHub부터 (찾아 튜닝)','모델보다 하네스를 의심','논술형 회상으로 이해 점검','클로드 코드를 손에 익힌다'];
+async function loadJyPrinciples(root){
+  try{
+    const dir=await getDir(root,['00_대시보드']);
+    const fh=await dir.getFileHandle('재윤OS_원칙.md');
+    const body=cardBody(await(await fh.getFile()).text());
+    const items=[...body.matchAll(/^\s*\d+\.\s+(.+)$/gm)].map(m=>m[1].trim());
+    return items.length?items:JY_FALLBACK;
+  }catch(e){return JY_FALLBACK;}
+}
+const JYNUM='①②③④⑤⑥⑦⑧⑨⑩';
 function viewJaeyun(){
+  if(state.jyPrinciples===undefined){
+    if(!state.jyLoading){state.jyLoading=true;loadJyPrinciples(state.root).then(items=>{state.jyPrinciples=items;state.jyLoading=false;renderView();});}
+    return head('재윤 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.')+padOpen+'<div class="empty" style="padding:48px 0">원칙 불러오는 중…</div>'+padClose;
+  }
+  const JY=state.jyPrinciples;
   const key='jy-'+new Date().toISOString().slice(0,10);
   const st=JSON.parse(localStorage.getItem(key)||'[]');
   let h=head('재윤 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.');
-  h+=padOpen+'<div class="rule"></div>'+JY.map((t,i)=>`<div class="ck ${st.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t"><b>${'①②③④⑤⑥'[i]}</b> ${esc(t)}</span></div>`).join('')+padClose;
+  h+=padOpen+'<div class="rule"></div>'+JY.map((t,i)=>`<div class="ck ${st.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t"><b>${JYNUM[i]||(i+1)}</b> ${esc(t)}</span></div>`).join('')+padClose;
   return h;
 }
 function viewCapture(){
