@@ -699,7 +699,7 @@ const monthStart=d=>new Date(d.getFullYear(),d.getMonth(),1);
 const dkey=d=>d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
 
 async function getDir(root,parts,create=false){let h=root;for(const p of parts)h=await h.getDirectoryHandle(p,{create});return h;}
-async function collectMd(dir,acc,prefix){for await(const[name,h]of dir.entries()){if(h.kind==='directory')await collectMd(h,acc,prefix+name+'/');else if(name.endsWith('.md')){try{const f=await h.getFile();const raw=await f.text();acc.push({name,path:prefix+name,handle:h,front:parseFront(raw),raw});}catch(e){}}}}
+async function collectMd(dir,acc,prefix){for await(const[name,h]of dir.entries()){if(h.kind==='directory')await collectMd(h,acc,prefix+name+'/');else if(name.endsWith('.md')){try{const f=await h.getFile();const raw=await f.text();acc.push({name,path:prefix+name,handle:h,front:parseFront(raw),raw,mtime:f.lastModified});}catch(e){}}}}
 async function readFolder(root,parts){const acc=[];try{await collectMd(await getDir(root,parts),acc,parts.join('/')+'/');}catch(e){return{error:parts.join('/'),items:[]};}return{items:acc};}
 async function readCsv(root,parts,filename){try{const dir=await getDir(root,parts);const fh=await dir.getFileHandle(filename);const t=await(await fh.getFile()).text();const lines=t.trim().split(/\r?\n/);const hdr=(lines.shift()||'').split(',');return lines.filter(Boolean).map(ln=>{const c=ln.split(',');const o={};hdr.forEach((h,i)=>o[h.trim()]=(c[i]||'').trim());return o;});}catch(e){return [];}}
 async function readAcct(root){return {raw:await readCsv(root,['40_프로젝트','회계'],'매출_raw.csv'),daily:await readCsv(root,['40_프로젝트','회계'],'매출_일별.csv'),exp:await readCsv(root,['40_프로젝트','회계'],'지출_카드.csv')};}
@@ -874,7 +874,7 @@ function sessTableRows(up){
     return r*dir;
   });
   return rows.map(p=>{
-    const stt=p.front['status']||p.front['진행상태']||'예정';const done=/완료/.test(stt);
+    const stt=readStatus(p.front)||'예정';const done=/완료/.test(stt);
     const col=done?'var(--green)':'var(--accent)';
     return `<tr class="clk" data-note="${esc(p.path)}">
       <td class="num" style="white-space:nowrap"><b>${md(p.d)}</b> <span class="mt">${dow(p.d)} ${esc(p.front['세션시각']||'')}</span></td>
@@ -949,15 +949,26 @@ function viewConsult(d){
   nz+=`</div>`;
   const td=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">할 일</div><div class="cst-sub">내가 처리할 것 — 직접 추가</div></div></div><div id="cstTodos">${renderCTodos(loadCTodos())}</div><div class="cst-add"><input id="cstTodoIn" placeholder="할 일 추가하고 Enter…" maxlength="90"><button id="cstTodoAdd">추가</button></div></div>`;
   h+=nz+td+`</div>`;
-  /* ── 진행 상태 파이프라인 (compact) ── */
-  const catOf=st=>{st=(st||'').trim();return /^진행중/.test(st)?'진행중':/^draft/i.test(st)?'draft':/^drop/i.test(st)?'drop':null;};
+  /* ── 진행 상태 파이프라인 (compact) ──
+     catOf: status(진행상태 폴백) 어휘 전체 인식 — 이전엔 진행중·draft·drop만 잡고 나머지(완료·예정 등)는
+     조용히 null로 떨어져 파이프라인에서 사라졌다(감사 §3-7). 세션 스키마(예정|완료|취소) + 프로젝트 스키마
+     (예정|진행중|완료|보류|취소) 전체 어휘를 인식하도록 확장. draft는 §4-6 채택대로 '문의' 버킷의 구표기 폴백. */
+  const catOf=st=>{st=(st||'').trim();
+    if(/^완료/.test(st))return '완료';
+    if(/^(취소|drop|중단)/i.test(st))return '취소';
+    if(/^진행중/.test(st))return '진행중';
+    if(/^예정/.test(st))return '예정';
+    if(/^(문의|draft)/i.test(st))return '문의';
+    if(/^보류/.test(st))return '보류';
+    return null;
+  };
   const am={};
-  d.cases.forEach(p=>{if(svc(p.front)!=='세션')return;const c=catOf(p.front['status']);if(!c)return;const nm=p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');const dt=pickDate(p.front['세션일'])||0;if(!am[nm]||dt>am[nm].dt)am[nm]={nm,c,dt,path:p.path};});
+  d.cases.forEach(p=>{if(svc(p.front)!=='세션')return;const c=catOf(readStatus(p.front));if(!c)return;const nm=p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');const dt=pickDate(p.front['세션일'])||0;if(!am[nm]||dt>am[nm].dt)am[nm]={nm,c,dt,path:p.path};});
   const acts=Object.values(am);
   if(acts.length){
-    const LB={'진행중':['진행중','var(--green)'],'draft':['draft','var(--ink)'],'drop':['drop','var(--mut2)']};
-    h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">진행 상태</div><div class="cst-sub">draft · 진행중 · drop</div></div></div><div style="display:flex;flex-direction:column;gap:12px">`;
-    for(const key of ['진행중','draft','drop']){const g=acts.filter(a=>a.c===key);if(!g.length)continue;
+    const LB={'예정':['예정','var(--accent)'],'진행중':['진행중','var(--green)'],'문의':['문의','var(--ink)'],'보류':['보류','var(--amber)'],'완료':['완료','var(--blue)'],'취소':['취소','var(--mut2)']};
+    h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">진행 상태</div><div class="cst-sub">예정 · 진행중 · 문의 · 보류 · 완료 · 취소</div></div></div><div style="display:flex;flex-direction:column;gap:12px">`;
+    for(const key of ['예정','진행중','문의','보류','완료','취소']){const g=acts.filter(a=>a.c===key);if(!g.length)continue;
       h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="background:${LB[key][1]};color:#fff;font-size:11.5px;font-weight:700;padding:3px 11px;border-radius:999px;flex:none;white-space:nowrap">${LB[key][0]} ${g.length}</span>${g.sort((a,b)=>b.dt-a.dt).map(a=>`<span class="chip clk" data-note="${esc(a.path)}" style="cursor:pointer">${esc(a.nm)}</span>`).join('')}</div>`;}
     h+=`</div></div>`;
   }
@@ -970,19 +981,38 @@ function viewConsult(d){
     h+=pub.map(p=>`<div class="cst-ev" style="cursor:default"><div class="cst-evd"><span class="n">${p.d?md(p.d):'—'}</span><span class="w">${p.d?dow(p.d):''}</span></div><div class="cst-evb"><div class="ti">${esc(p.nm)}</div><div class="cst-evm"><span class="cst-badge green">완료</span>${p.sent?'<span class="cst-badge blue">전달완료</span>':'<span class="cst-badge amber">전달 예정</span>'}<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;text-decoration:none">리포트 열기 ↗</a><span class="mt clk" data-note="${esc(p.path)}" style="cursor:pointer;text-decoration:underline">노트</span></div></div></div>`).join('');
     h+=`</div></div>`;
   }
-  /* ── 전략가이드라인 (별개 상품: 대면 미팅 시작 → 약 1개월 문서 결과물) ── */
+  /* ── 전략가이드라인 (별개 상품: 대면 미팅 시작 → 약 1개월 문서 결과물) ──
+     완료 terminal 처리(PLAN §3.2·§4-5): status:완료|취소면 경과일 카운트를 매일 늘리지 않고 완료 감지 시점 값으로
+     동결(라벨도 "착수→완료 N일 소요"로 전환), D-day는 소멸. 전용 완료일 필드가 아직 볼트에 없어(마이그레이션은
+     S11) 프론트매터 `updated`(케이스 노트 100% 보유 확인됨)를 완료 감지 시점의 대리값으로 쓴다 — status를 완료로
+     고치면 updated도 같이 갱신하는 게 기존 관행이라 근사가 합리적이다. `updated`가 없으면 파일 mtime, 그마저
+     없으면(원격/모바일 모드) today()로 폴백(이 경우만 예외적으로 계속 증가할 수 있음). 완료·취소 14일 경과 건은
+     접힌 아카이브로 이동. */
   const gc=caseRows.filter(p=>svc(p.front)==='프로젝트').sort((a,b)=>b.d-a.d);
   if(gc.length){
+    const now=today();
+    const rowsG=gc.map(p=>{
+      const st=readStatus(p.front);
+      const done=/^완료/.test(st), cancel=/^(취소|drop|중단)/i.test(st), terminal=done||cancel;
+      const badge=done?['green','완료']:cancel?['mut','취소']:['blue','진행중'];
+      let dueTxt,doneDate=null;
+      if(terminal){
+        doneDate=pickDate(p.front['updated'])||(p.mtime?new Date(p.mtime):now);   // 완료 감지 시점 대리값(위 주석) — 매일 증가 금지
+        const el=Math.max(0,Math.round((doneDate-p.d)/864e5));
+        dueTxt=`착수→${done?'완료':'취소'} ${el}일 소요`;
+      }else{
+        const el=Math.round((now-p.d)/864e5);
+        const dl=Math.round((p.d.getTime()+30*864e5-now)/864e5);
+        dueTxt=`미팅 후 ${el}일`+(dl>=0?` · 납품 예정 D-${dl}`:` · 납품 예정 ${-dl}일 지남`);
+      }
+      const archived=terminal&&doneDate&&Math.round((now-doneDate)/864e5)>=14;
+      return {p,badge,dueTxt,archived};
+    });
+    const rowHtml=r=>`<div class="cst-ev clk" data-note="${esc(r.p.path)}"><div class="cst-evd"><span class="n">${md(r.p.d)}</span><span class="w">${dow(r.p.d)}</span></div><div class="cst-evb"><div class="ti">${esc(r.p.front['이름']||'')}</div><div class="cst-evm"><span class="cst-badge ${r.badge[0]}">${r.badge[1]}</span><span class="mt">${esc(r.dueTxt)}</span></div></div><span class="cst-go">›</span></div>`;
+    const active=rowsG.filter(r=>!r.archived), archived=rowsG.filter(r=>r.archived);
     h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">전략가이드라인</div><div class="cst-sub">별개 상품 · 대면 미팅 시작 → 약 1개월 문서 결과물</div></div></div><div class="evlist">`;
-    h+=gc.map(p=>{
-      const st=String(p.front['status']||p.front['진행상태']||'');
-      const done=/완료/.test(st), drop=/drop|취소|중단/i.test(st);
-      const badge=done?['green','완료']:drop?['mut','취소']:['blue','진행중'];
-      const el=Math.round((today()-p.d)/864e5);
-      const dl=Math.round((p.d.getTime()+30*864e5-today())/864e5);
-      const dueTxt=(done||drop)?'':(dl>=0?` · 납품 예정 D-${dl}`:` · 납품 예정 ${-dl}일 지남`);
-      return `<div class="cst-ev clk" data-note="${esc(p.path)}"><div class="cst-evd"><span class="n">${md(p.d)}</span><span class="w">${dow(p.d)}</span></div><div class="cst-evb"><div class="ti">${esc(p.front['이름']||'')}</div><div class="cst-evm"><span class="cst-badge ${badge[0]}">${badge[1]}</span><span class="mt">미팅 후 ${el}일${dueTxt}</span></div></div><span class="cst-go">›</span></div>`;
-    }).join('');
+    h+=active.map(rowHtml).join('')||`<div class="empty">진행 중인 건이 없어요</div>`;
+    if(archived.length)h+=`<details class="cst-more"><summary>완료 14일 경과 — 아카이브 ${archived.length}건</summary>${archived.map(rowHtml).join('')}</details>`;
     h+=`</div></div>`;
   }
   return h+padClose;
@@ -992,6 +1022,9 @@ function viewConsult(d){
    '서비스' 필드가 정본, 없으면 '상품' 자유텍스트 regex로 폴백 추정(구 isGuide 대체 — 조니처럼 '가이드라인'이 아닌
    '프로젝트' 표기 상품도 잡히도록 폭을 넓힘). PLAN_ax대시보드_v1 §3.1 */
 const svc=f=>(f&&f['서비스'])||(/가이드라인|프로젝트/.test((f&&f['상품'])||'')?'프로젝트':'세션');
+/* 상태 읽기 정본 — status 단일화, 진행상태는 구노트 폴백으로만 유지('상태' 필드는 어디서도 읽지 않는다 — 그 실체는
+   사람용 자유문 로그라 코드가 강제하는 순간 다시 enum 압력이 생긴다). PLAN §3.2 */
+const readStatus=f=>String((f&&(f['status']||f['진행상태']))||'').trim();
 function consultNotices(d,t){
   const D=864e5;
   const rows=d.cases.map(p=>({d:pickDate(p.front['세션일']),nm:p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,''),sent:/발송완료/.test(p.front['발송상태']||''),path:p.path,front:p.front})).filter(x=>x.d&&svc(x.front)==='세션');
