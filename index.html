@@ -2566,8 +2566,8 @@ function viewRevContent(){
   const rdt={};raw.forEach(r=>{const dt=r['날짜'];if(!dt)return;const t=tierOf(r['결제액']);rdt[dt]=rdt[dt]||{};rdt[dt][t]=(rdt[dt][t]||0)+N(r['결제액']);});
   const dys=Object.keys(rdt).sort();const min=dys[0],max=dys[dys.length-1];
   const pub={};
-  (d.reels||[]).forEach(p=>{const dt=pickDate(p.front['published']);if(dt){const k=iso(dt);if(inRange(k,R))(pub[k]=pub[k]||[]).push({t:'릴스',title:p.front['title']||p.name});}});
-  (d.kits||[]).forEach(p=>{const dt=pickDate(p.front['발행일']);if(dt){const k=iso(dt);if(inRange(k,R))(pub[k]=pub[k]||[]).push({t:'RE:KIT',title:p.front['콘텐츠명']||''});}});
+  (d.reels||[]).forEach(p=>{const dt=pickDate(p.front['published']);if(dt){const k=iso(dt);if(inRange(k,R))(pub[k]=pub[k]||[]).push({t:'릴스',title:p.front['title']||p.name,path:p.path});}});
+  (d.kits||[]).forEach(p=>{const dt=pickDate(p.front['발행일']);if(dt){const k=iso(dt);if(inRange(k,R))(pub[k]=pub[k]||[]).push({t:'RE:KIT',title:p.front['콘텐츠명']||'',path:p.path});}});
   const toN=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])/864e5;};
   const toD=n=>{const t=new Date(n*864e5);return `${t.getUTCFullYear()}-${String(t.getUTCMonth()+1).padStart(2,'0')}-${String(t.getUTCDate()).padStart(2,'0')}`;};
   const items=[];
@@ -2577,13 +2577,22 @@ function viewRevContent(){
     if(cov>0)arr.forEach(x=>items.push({...x,dt,money,ts}));
   }
   items.sort((x,y)=>y.money-x.money);
-  h+=`<div class="warn" style="font-size:12.5px">⚠️ 상관≠인과 · 스파이크는 소수 고액결제 — 추세로. <b>${R.label}</b> 발행분 (매출범위 ${min}~${max}).</div>`;
+  // 정직성 고지를 sample-banner 톤으로 상시 표시(PLAN §3.4) — .warn(경고색) 대신 .empty 좌보더 배너, 인과 아님을 매번 재확인
+  h+=`<div class="empty" style="text-align:left;border-left-color:var(--accent);margin-bottom:14px">±7일 상관 — 인과 아님 · 스파이크는 소수 고액결제, 추세로만 보세요. <b>${esc(R.label)}</b> 발행분(매출범위 ${esc(min||'—')}~${esc(max||'—')}).</div>`;
   h+=`<div class="sec">콘텐츠별 — 발행 후 7일 '돈줄 매출' 순 <span class="note">클래스+심화+고가</span></div><div class="rule"></div>`;
   const mx=Math.max(1,...items.map(x=>x.money));
-  for(const x of items.slice(0,18)){
-    const bd=['고가','심화','클래스·중가'].filter(t=>x.ts[t]).map(t=>`${t.replace('·중가','')} ${num(x.ts[t])}`).join(' · ')||'(돈줄 없음)';
-    h+=`<div class="item" style="grid-template-columns:58px 48px 1fr 116px"><div class="d">${x.dt.slice(5)}</div><div class="mt">${x.t}</div><div><div class="ti">${esc((x.title||'').slice(0,26))}</div><div class="mt" style="font-size:11px">${bd}</div></div><div class="barwrap" style="gap:8px"><div class="bar"><div style="width:${(x.money/mx*100).toFixed(0)}%"></div></div><span class="mt" style="white-space:nowrap">${num(x.money)}</span></div></div>`;
-  }
+  h+=`<div class="card"><table class="dt">
+    <thead><tr><th>날짜</th><th>유형</th><th>콘텐츠</th><th class="num">돈줄 매출</th></tr></thead>
+    <tbody>${items.slice(0,18).map(x=>{
+      const bd=['고가','심화','클래스·중가'].filter(t=>x.ts[t]).map(t=>`${t.replace('·중가','')} ${num(x.ts[t])}`).join(' · ')||'(돈줄 없음)';
+      return `<tr class="clk" data-note="${esc(x.path||'')}">
+        <td class="mt" style="white-space:nowrap">${esc(x.dt.slice(5))}</td>
+        <td class="mt">${esc(x.t)}</td>
+        <td><div class="ti">${esc((x.title||'').slice(0,40))}</div><div class="mt" style="font-size:11px">${esc(bd)}</div></td>
+        <td class="num"><div class="barwrap" style="justify-content:flex-end"><div class="bar" style="width:64px;flex:none"><div style="width:${(x.money/mx*100).toFixed(0)}%;background:var(--s1)"></div></div><span style="white-space:nowrap">${num(x.money)}</span></div></td>
+      </tr>`;
+    }).join('')||`<tr><td colspan="4"><div class="empty">이 기간엔 발행-매출 겹침이 없어요</div></td></tr>`}</tbody>
+  </table></div>`;
   return h+padClose;
 }
 /* ═══════════════ 이번 스프린트 ═══════════════ */
