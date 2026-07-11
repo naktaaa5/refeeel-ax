@@ -163,6 +163,10 @@
   .ptab{font-size:12.5px;font-weight:500;padding:7px 10px;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:6px 6px 0 0;cursor:pointer;color:var(--ink-3);background:transparent;white-space:nowrap;transition:color .12s,background .12s}
   .ptab:hover{color:var(--ink);background:var(--surface-2)}
   .ptab.on{background:transparent;color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+  .ptab .n{font-size:10.5px;font-weight:600;color:var(--ink-3);background:var(--surface-2);border-radius:999px;padding:0 6px;line-height:16px;margin-left:5px}
+  /* ops 카운트 알약(.n) — 회차·건수 등 숫자 배지 범용 */
+  .n{display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;color:var(--ink-3);background:var(--surface-2);border-radius:999px;min-width:18px;height:18px;padding:0 6px}
+  .ptab.on .n{color:var(--accent-ink);background:var(--accent-soft)}
   .psearch{margin:0 16px 8px;display:flex;align-items:center;gap:7px;background:var(--surface-2);border-radius:9px;padding:7px 10px;color:var(--ink-3)}
   .psearch input{border:none;background:transparent;outline:none;font:inherit;font-size:12.5px;flex:1;min-width:0;color:var(--ink)}
   .plist{overflow-y:auto;max-height:420px;padding:0 6px 8px}
@@ -664,7 +668,7 @@
   @media(prefers-reduced-motion:reduce){.side,.navback{transition:none}}
   button,.nav,.ptab,.chip,.fbtn,.ddbtn,.hamb{touch-action:manipulation}
   /* ═══ 컨설팅 허브 (김낙타 Dashboard 톤 · 2×2 · 별도 브리핑) ═══ */
-  .cst-g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .cst-g2{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:16px;margin-bottom:16px}
   @media(max-width:900px){.cst-g2{grid-template-columns:1fr}}
   .cst-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-card);padding:22px 24px}
   .cst-chd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px}
@@ -682,18 +686,6 @@
   .cst-evm{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:6px}
   .cst-evm .mt{font-size:12.5px;color:var(--ink-3);font-weight:500}
   .cst-go{color:var(--ink-3);font-weight:700;font-size:17px}
-  .cst-nrow{display:flex;align-items:center;gap:13px;padding:12px 10px;border-radius:14px;cursor:pointer}
-  .cst-nrow:hover{background:#f7f7f8}
-  .cst-ndot{width:40px;height:40px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center}
-  .cst-ndot i{width:11px;height:11px;border-radius:999px;display:block}
-  .cst-ndot.serious{background:var(--critical-bg)}.cst-ndot.serious i{background:var(--critical)}
-  .cst-ndot.warning{background:var(--warning-bg)}.cst-ndot.warning i{background:var(--warning)}
-  .cst-ndot.good{background:rgba(12,163,12,.10)}.cst-ndot.good i{background:var(--good)}
-  .cst-nb{flex:1;min-width:0}
-  .cst-nb .l1{display:flex;align-items:center;gap:8px}
-  .cst-nb .nm{font-size:14.5px;font-weight:700}
-  .cst-nb .tx{font-size:13px;color:var(--ink-3);font-weight:500;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .cst-nb .tx b{color:var(--ink);font-weight:700}
   .cst-badge{font-size:11.5px;font-weight:700;border-radius:8px;padding:3px 10px;white-space:nowrap}
   .cst-badge.serious{background:var(--critical-bg);color:var(--critical)}.cst-badge.warning{background:var(--warning-bg);color:var(--warning)}.cst-badge.good{background:rgba(12,163,12,.10);color:var(--good)}.cst-badge.accent{background:var(--accent-soft);color:var(--accent-ink)}.cst-badge.muted{background:var(--surface-2);color:var(--ink-3)}
   .cst-td{display:flex;align-items:center;gap:13px;padding:9px 2px}
@@ -1050,8 +1042,12 @@ function viewConsult(d){
   if(psel)return prepBriefing(psel);                        // 브리핑 = 별도 페이지
   const t=today();
   const board=state.cstBoard||'session';
+  // 탭 카운트(PLAN §3.2) — 세션 보드=예정 세션 수, 프로젝트 보드=진행 중(터미널 제외), 원장=클라이언트 수
+  const sessN=d.cases.filter(p=>{const dt=pickDate(p.front['세션일']);return dt&&dt>=t&&svc(p.front)==='세션';}).length;
+  const projN=d.cases.filter(p=>svc(p.front)==='프로젝트'&&!/^완료|취소|drop|중단/i.test(readStatus(p.front))).length;
+  const ledgerN=new Set(d.cases.filter(p=>svc(p.front)==='세션').map(p=>p.front['이름']||p.name.replace('.md',''))).size;
   let h=head('Consulting','컨설팅','세션 · 프로젝트 · 클라이언트 원장 — 탭으로 전환.')+padOpen;
-  h+=`<div class="ptabs" style="padding:0 0 18px">${[['session','세션 보드'],['project','프로젝트 보드'],['ledger','클라이언트 원장']].map(([k,l])=>`<div class="ptab ${board===k?'on':''}" data-cboard="${k}">${l}</div>`).join('')}</div>`;
+  h+=`<div class="ptabs" style="padding:0 0 18px">${[['session','세션 보드',sessN],['project','프로젝트 보드',projN],['ledger','클라이언트 원장',ledgerN]].map(([k,l,n])=>`<div class="ptab ${board===k?'on':''}" data-cboard="${k}" role="tab" aria-selected="${board===k}">${l}<span class="n">${n}</span></div>`).join('')}</div>`;
   if(board==='project')h+=consultProjectBoard(d,t);
   else if(board==='ledger')h+=consultLedgerBoard(d,t);
   else h+=consultSessionBoard(d,t,plist);
@@ -1072,17 +1068,17 @@ function consultSessionBoard(d,t,plist){
       const nm=p.front['이름']||'';
       const prep=plist.find(x=>x.client===nm&&x.d.getTime()===p.d.getTime());
       const attr=prep?`data-prep="${esc(prep.path)}"`:`data-note="${esc(p.path)}"`;
-      return `<div class="cst-ev clk" ${attr}><div class="cst-evd"><span class="n">${md(p.d)}</span><span class="w">${dow(p.d)}</span></div><div class="cst-evb"><div class="ti">${esc(nm)}</div><div class="cst-evm">${ddayChip(p.d)}<span class="mt">${esc(p.front['상품']||'줌1:1')}${p.front['회차']?' · '+esc(p.front['회차'])+'회차':''}</span></div></div><span class="cst-go">›</span></div>`;
+      return `<div class="cst-ev clk" ${attr}><div class="cst-evd"><span class="n">${md(p.d)}</span><span class="w">${dow(p.d)}</span></div><div class="cst-evb"><div class="ti">${esc(nm)}</div><div class="cst-evm">${ddayChip(p.d)}<span class="mt">${esc(p.front['상품']||'줌1:1')}${p.front['회차']?' · '+esc(p.front['회차'])+'회차':''}</span></div></div>${stepsDotsHtml(milestones(p))}<span class="cst-go">›</span></div>`;
     };
     ev+=upCases.slice(0,5).map(evRow).join('');
     const rest=upCases.slice(5);
     if(rest.length)ev+=`<details class="cst-more"><summary>+${rest.length}개 더보기</summary>${rest.map(evRow).join('')}</details>`;
   }else ev+=`<div class="empty">예정 세션이 없어요</div>`;
   h+=ev+`</div></div>`;
-  /* ── Row 2: 확인 요망 | 할 일 ── */
+  /* ── Row 2: 확인 요망(diag 문법 — cst-nrow 폐기, PLAN §3.2) | 할 일 ── */
   h+=`<div class="cst-g2">`;
   let nz=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">확인 요망${notices.length?` <span class="cst-cnt">${notices.length}</span>`:''}</div><div class="cst-sub">시스템이 감지한, 잊고 있는 것들</div></div></div>`;
-  if(notices.length)nz+=notices.map(n=>`<div class="cst-nrow clk" data-note="${esc(n.path)}"><span class="cst-ndot ${n.sev}"><i></i></span><div class="cst-nb"><div class="l1"><span class="nm">${esc(n.nm)}</span><span class="cst-badge ${n.sev}">${esc(n.badge)}</span></div><div class="tx"><b>${esc(n.t)}</b> · ${esc(n.s)}</div></div></div>`).join('');
+  if(notices.length)nz+=notices.map(n=>`<div class="diag clk" data-note="${esc(n.path)}" style="margin-bottom:8px"><div class="diag-ic ${n.sev}">${diagIconSvg}</div><div class="diag-body"><div class="diag-t">${esc(n.nm)} · ${esc(n.t)}</div><div class="diag-p">${esc(n.s)}</div><div class="diag-ev">${esc(n.badge)}</div></div></div>`).join('');
   else nz+=`<div class="empty">확인할 게 없어요 👏</div>`;
   nz+=`</div>`;
   const td=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">할 일</div><div class="cst-sub">내가 처리할 것 — 직접 추가</div></div></div><div id="cstTodos">${renderCTodos(loadCTodos())}</div><div class="cst-add"><input id="cstTodoIn" placeholder="할 일 추가하고 Enter…" maxlength="90"><button id="cstTodoAdd">추가</button></div></div>`;
@@ -1137,59 +1133,61 @@ function consultProjectBoard(d,t){
   const now=today();
   const rowsG=gc.map(p=>{
     const st=readStatus(p.front);
-    const done=/^완료/.test(st), cancel=/^(취소|drop|중단)/i.test(st), terminal=done||cancel;
-    const badge=done?['good','완료']:cancel?['muted','취소']:['accent','진행중'];
+    const done=/^완료/.test(st), cancel=/^(취소|drop|중단)/i.test(st), hold=/^보류/.test(st), terminal=done||cancel;
+    const badge=done?['pill-good','완료']:cancel?['pill-muted','취소']:hold?['pill-outline','보류']:['pill-ai','진행중'];
     const jg=jangeum(p.front);
-    let dueTxt,doneDate=null;
+    let cap,cd,doneDate=null;
     if(terminal){
       doneDate=pickDate(p.front['updated'])||(p.mtime?new Date(p.mtime):now);   // 완료 감지 시점 대리값(위 주석) — 매일 증가 금지
       const el=Math.max(0,Math.round((doneDate-p.d)/864e5));
-      dueTxt=`착수→${done?'완료':'취소'} ${el}일 소요`;
+      cap=`착수→${done?'완료':'취소'} ${el}일 소요`;cd=null;   // D-day 소멸(터미널)
     }else{
       const el=Math.round((now-p.d)/864e5);
       const dl=Math.round((p.d.getTime()+30*864e5-now)/864e5);
-      dueTxt=`착수 후 ${el}일`+(dl>=0?` · 납품 예정 D-${dl}`:` · 납품 예정 ${-dl}일 지남`);
+      cap=`착수 후 ${el}일`;cd=dl>=0?`D-${dl}`:`${-dl}일 지남`;
     }
     const archived=terminal&&doneDate&&Math.round((now-doneDate)/864e5)>=14;
-    return {p,badge,dueTxt,archived,jg};
+    return {p,badge,cap,cd,archived,jg,m:milestones(p)};
   });
-  const rowHtml=r=>`<div class="cst-ev clk" data-note="${esc(r.p.path)}"><div class="cst-evd"><span class="n">${md(r.p.d)}</span><span class="w">${dow(r.p.d)}</span></div><div class="cst-evb"><div class="ti">${esc(r.p.front['이름']||'')}</div><div class="cst-evm"><span class="cst-badge ${r.badge[0]}">${r.badge[1]}</span>${r.jg?`<span class="cst-badge warning">수금: ${esc(r.jg)}</span>`:''}<span class="mt">${esc(r.dueTxt)}</span></div></div><span class="cst-go">›</span></div>`;
+  const rowHtml=r=>`<div class="cst-ev clk" data-note="${esc(r.p.path)}"><div class="cst-evd"><span class="n">${md(r.p.d)}</span><span class="w">${dow(r.p.d)}</span></div><div class="cst-evb"><div class="ti">${esc(r.p.front['이름']||'')} <span class="mt">${esc(r.p.front['상품']||'')}</span></div><div class="cst-evm"><span class="pill ${r.badge[0]}">${r.badge[1]}</span>${r.jg?`<span class="pill pill-warning">잔금대기</span>`:''}</div></div><div style="width:160px;flex:none">${stepsFullHtml(r.m,r.cap,r.cd)}</div><span class="cst-go">›</span></div>`;
   const active=rowsG.filter(r=>!r.archived), archived=rowsG.filter(r=>r.archived);
   let h=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">프로젝트</div><div class="cst-sub">가이드라인 등 월단위 착수 → 납품 · ${gc.length}건</div></div></div><div class="evlist">`;
   h+=active.map(rowHtml).join('')||`<div class="empty">진행 중인 건이 없어요</div>`;
-  if(archived.length)h+=`<details class="cst-more"><summary>완료 14일 경과 — 아카이브 ${archived.length}건</summary>${archived.map(rowHtml).join('')}</details>`;
+  if(archived.length)h+=`<details class="cst-more"><summary><span class="mt">완료 14일 경과 — 아카이브 ${archived.length}건</span></summary>${archived.map(rowHtml).join('')}</details>`;
   h+=`</div></div>`;
   return h;
 }
 /* ── 클라이언트 원장: 폐기된 CRM 흡수(PLAN §2, G-2 — 4/5 중복 해소) — svc==='세션' 케이스를 클라이언트
    단위로 그룹핑(세션-행이 아니라 클라이언트당 1행). 재방문(회차2+ 또는 실제 세션-행 2+)·발송이력·클라이언트 수. ── */
+/* 원장 table 문법(PLAN §3.2) — 클라이언트별 1행. "누적 매출(핸들 매칭)"·"행 확장 타임라인"은 이번 스텝
+   범위 밖(acct의 매출 데이터가 이 뷰에 로드되지 않고, CSV 핸들 매칭·확장 UI는 별도 스텝 분량 — 보고에 명시). */
 function consultLedgerBoard(d,t){
   const rows=d.cases.map(p=>({p,path:p.path,d:pickDate(p.front['세션일']),name:p.front['이름']||p.name.replace('.md',''),
+    handle:((p.path.split('/')[2]||'').match(/\(([^)]+)\)/)||[])[1]||'',
     prod:p.front['상품']||'',rep:N(p.front['회차']),sent:/발송완료/.test(p.front['발송상태']||'')})).filter(x=>x.d&&svc(x.p.front)==='세션');
   const byC={};
   rows.forEach(x=>{
-    const c=byC[x.name]||{name:x.name,d:x.d,path:x.path,prod:x.prod,sent:x.sent,rep:x.rep,visits:0};
+    const c=byC[x.name]||{name:x.name,handle:x.handle,d:x.d,path:x.path,prod:x.prod,sent:x.sent,rep:x.rep,visits:0};
     c.visits++;
-    if(x.d>=c.d){c.d=x.d;c.path=x.path;c.prod=x.prod;c.sent=x.sent;}   // 최신 세션 기준 대표행
+    if(x.d>=c.d){c.d=x.d;c.path=x.path;c.prod=x.prod;c.sent=x.sent;c.handle=x.handle||c.handle;}   // 최신 세션 기준 대표행
     c.rep=Math.max(c.rep,x.rep);
     byC[x.name]=c;
   });
-  const clients=Object.values(byC);
-  const upcoming=clients.filter(c=>c.d>=t).sort((a,b)=>a.d-b.d);
-  const followup=clients.filter(c=>c.d<t&&!c.sent).sort((a,b)=>b.d-a.d);
-  const sentDone=clients.filter(c=>c.sent);
-  const repeat=clients.filter(c=>c.rep>=2||c.visits>=2).sort((a,b)=>Math.max(b.rep,b.visits)-Math.max(a.rep,a.visits));
-  let h=`<div class="stats" style="margin-bottom:18px">`+stat(clients.length,'','클라이언트',1)+stat(upcoming.length,'건','예정')+stat(sentDone.length,'','발송완료')+stat(repeat.length,'','재방문')+`</div>`;
-  const row=x=>`<div class="cst-ev clk" data-note="${esc(x.path)}"><div class="cst-evd"><span class="n">${md(x.d)}</span><span class="w">${dow(x.d)}</span></div><div class="cst-evb"><div class="ti">${esc(x.name)} <span class="mt">${esc(x.prod)}</span></div><div class="cst-evm">${x.rep>=2||x.visits>=2?`<span class="cst-badge accent">🔁 ${Math.max(x.rep,x.visits)}회</span>`:''}<span class="cst-badge ${x.sent?'good':'warning'}">${x.sent?'발송완료':'미확인'}</span></div></div><span class="cst-go">›</span></div>`;
-  h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">⚡ 발송 미확인</div><div class="cst-sub">세션 후 발송·확인 필요</div></div></div><div class="evlist">`;
-  h+=followup.length?followup.slice(0,30).map(row).join(''):'<div class="empty">없어요 👏</div>';
-  h+=`</div></div>`;
-  h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">📅 예정 세션</div><div class="cst-sub">가까운 순</div></div></div><div class="evlist">`;
-  h+=upcoming.length?upcoming.map(row).join(''):'<div class="empty">예정 세션이 없어요</div>';
-  h+=`</div></div>`;
-  h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">🔁 재방문 클라이언트</div><div class="cst-sub">회차 2+ · 클라이언트당 1행</div></div></div><div class="evlist">`;
-  h+=repeat.length?repeat.map(row).join(''):'<div class="empty">아직 없어요</div>';
-  h+=`</div></div>`;
+  const clients=Object.values(byC).sort((a,b)=>b.d-a.d);
+  const upcoming=clients.filter(c=>c.d>=t).length;
+  const sentDone=clients.filter(c=>c.sent).length;
+  const repeat=clients.filter(c=>c.rep>=2||c.visits>=2).length;
+  let h=`<div class="stats" style="margin-bottom:18px">`+stat(clients.length,'','클라이언트',1)+stat(upcoming,'건','예정')+stat(sentDone,'','발송완료')+stat(repeat,'','재방문')+`</div>`;
+  h+=`<div class="card"><table class="dt">
+    <thead><tr><th>이름</th><th>핸들</th><th>최근 세션일</th><th>회차</th><th>발송상태</th></tr></thead>
+    <tbody>${clients.map(c=>`<tr class="clk" data-note="${esc(c.path)}">
+      <td><b style="color:var(--ink)">${esc(c.name)}</b>${c.rep>=2||c.visits>=2?` <span class="pill pill-ai">🔁 재방문</span>`:''}</td>
+      <td class="mt">${c.handle?'@'+esc(c.handle):'—'}</td>
+      <td class="num">${md(c.d)} <span class="mt">${dow(c.d)}</span></td>
+      <td><span class="n">${Math.max(c.rep,c.visits)||1}</span></td>
+      <td><span class="pill ${c.sent?'pill-good':'pill-warning'}">${c.sent?'발송완료':'미확인'}</span></td>
+    </tr>`).join('')||`<tr><td colspan="5"><div class="empty">클라이언트가 없어요</div></td></tr>`}</tbody>
+  </table></div>`;
   return h;
 }
 /* 확인 요망 — 막힌 단계 자동 감지 (발송 D+3 · 설문 미제출 · 재방문) */
@@ -1249,11 +1247,13 @@ function milestones(c){
 }
 /* .steps 렌더(PLAN §2.2 원문 마크업) — dots만(세션 보드 예정 행 축약형) / full(레일+캡션, 프로젝트 보드·원장) */
 const stepsDotsHtml=m=>`<div class="steps-dots" style="margin-top:0">${m.steps.map(s=>`<span class="sd${s.done?' done':''}${s.warn?' warn':''}${s.half?' half':''}" title="${esc(s.label)}"></span>`).join('')}</div>`;
-const stepsFullHtml=(m,cap)=>`<div class="steps${m.terminal?' done':''}" role="img" aria-label="진행 ${m.doneCount}/${m.total}">
+const stepsFullHtml=(m,cap,cd)=>`<div class="steps${m.terminal?' done':''}" role="img" aria-label="진행 ${m.doneCount}/${m.total}">
   <div class="steps-rail"><i style="width:${Math.round(m.ratio*100)}%"></i></div>
   ${stepsDotsHtml(m)}
-  <div class="steps-cap">${esc(cap||'')}</div>
+  <div class="steps-cap">${esc(cap||'')}${cd?` <span class="cd">${esc(cd)}</span>`:''}</div>
 </div>`;
+/* diag 아이콘(경고 삼각형) — 심각도는 .diag-ic 모디파이어 클래스로만 표현, 아이콘 모양은 공통 */
+const diagIconSvg='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>';
 /* 홈 '다음 액션' 1건 파생(PLAN §3.1) — 우선순위: 가까운 세션 미충족 마일스톤 > 잔금대기 > 납기 D-3 > 발송 D+3.
    전량 파생, consultNotices/milestones/jangeum 재사용 — 새 신호 없음. */
 function nextAction(d,t){
