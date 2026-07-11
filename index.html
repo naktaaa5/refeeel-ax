@@ -443,6 +443,13 @@
   .ev{font-size:10px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:8px;position:relative;color:var(--ink-2)}
   .ev:before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:3px;border-radius:2px;background:var(--ink-3)}
   .ev.consult:before{background:var(--accent)}.ev.project:before{background:var(--warning)}.ev.kit:before{background:var(--good)}.ev.reel:before{background:var(--s1)}.ev.gcal:before{background:var(--ink-3)}
+  .ev.work:before{background:#0d9aa8}.ev.personal:before{background:var(--ink-3)}.ev.bill:before{background:var(--critical)}
+  /* 통합 캘린더 필터 칩 */
+  .calfilter{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 14px}
+  .calfilter .chip{font:inherit;font-size:12.5px;font-weight:550;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:6px 14px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;display:inline-flex;align-items:center;gap:6px}
+  .calfilter .chip:hover{background:var(--surface-2)}
+  .calfilter .chip.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+  .calfilter .chip i{width:7px;height:7px;border-radius:999px;flex:none}
   .evmore{font-size:9.5px;color:var(--ink-3);padding-left:8px}
   .calgrid.mini .calcell{min-height:64px}
 
@@ -461,6 +468,7 @@
   .wkallcell{min-height:24px;border-left:1px solid var(--line);border-bottom:1px solid var(--surface-2);padding:3px;display:flex;flex-direction:column;gap:3px}
   .wev{font-size:10.5px;line-height:1.3;padding:2px 7px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
   .wev.consult{background:var(--accent-soft);color:var(--accent-ink)}.wev.project{background:var(--warning-bg);color:var(--warning)}.wev.kit{background:rgba(12,163,12,.10);color:var(--good)}.wev.reel{background:#e8eff7;color:var(--s1)}.wev.gcal{background:var(--surface-2);color:var(--ink-3)}
+  .wev.work{background:#e2f4f6;color:#0b7a86}.wev.personal{background:var(--surface-2);color:var(--ink-3)}.wev.bill{background:var(--critical-bg);color:var(--critical)}
   .wkbody{position:relative}
   .wkhr{font-size:10px;color:var(--ink-3);text-align:right;padding:2px 7px 0 0;border-top:1px solid var(--line)}
   .wkslot{border-left:1px solid var(--line);border-top:1px solid var(--line)}
@@ -471,6 +479,9 @@
   .wblk.kit{background:#e7f5ee;color:#15803d;border-left:3px solid var(--good)}
   .wblk.reel{background:#e8eff7;color:var(--s1);border-left:3px solid var(--s1)}
   .wblk.gcal{background:var(--surface-2);color:var(--ink-3);border-left:3px solid var(--ink-3)}
+  .wblk.work{background:#e2f4f6;color:#0b7a86;border-left:3px solid #0d9aa8}
+  .wblk.personal{background:var(--surface-2);color:var(--ink-3);border-left:3px solid var(--ink-3)}
+  .wblk.bill{background:var(--critical-bg);color:var(--critical);border-left:3px solid var(--critical)}
 
   /* 콘텐츠 상태 배지 + 필터 */
   .cbadge{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
@@ -735,7 +746,6 @@
   <div class="nav" data-v="consult"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg> 컨설팅</div>
   <div class="nav" data-v="kit"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2Z"/><path d="M8 3v18"/></svg> RE:KIT</div>
   <div class="nav" data-v="cal"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg> 캘린더</div>
-  <div class="nav" data-v="gcal"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><circle cx="12" cy="14" r="2.4" fill="currentColor" stroke="none"/></svg> 전체 일정</div>
   <div class="nav" data-v="queue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="m17 14 4 4-4 4" transform="translate(0 -4)"/></svg> 발행 큐</div>
   <div class="nav" data-v="acct"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg> 재무 P&L</div>
   <div class="nav" data-v="revc"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="5" height="9" rx="1"/><rect x="10" y="6" width="5" height="14" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg> 매출×콘텐츠</div>
@@ -1690,7 +1700,7 @@ function wireReelSort(){
 }
 
 /* ═══════════════ 캘린더(재사용) ═══════════════ */
-const KIND={consult:{c:'컨설팅',cls:'consult'},project:{c:'프로젝트',cls:'project'},kit:{c:'RE:KIT',cls:'kit'},reel:{c:'릴스',cls:'reel'},gcal:{c:'일정',cls:'gcal'}};
+const KIND={consult:{c:'컨설팅',cls:'consult'},project:{c:'프로젝트',cls:'project'},kit:{c:'RE:KIT',cls:'kit'},reel:{c:'릴스',cls:'reel'},work:{c:'업무',cls:'work'},personal:{c:'개인',cls:'personal'},bill:{c:'결제',cls:'bill'},gcal:{c:'일정',cls:'gcal'}};
 function calEvents(d){
   const ev=[];
   /* 세션형은 세션일 1건, 프로젝트형(svc==='프로젝트')은 착수일·납기일 2건(kind:'project') —
@@ -1712,14 +1722,29 @@ function calEvents(d){
   (d.reels||[]).forEach(p=>{const dt=pickDate(p.front['published']);if(dt)ev.push({date:dt,kind:'reel',path:p.path,label:p.front['title']||p.name.replace('.md',''),sub:num(N(p.front['조회수']))+' 조회',extra:'',meta:''});});
   return ev;
 }
-// 구글 캘린더(개인 일정 포함) — 업무 캘린더와 분리된 전용 페이지에서만 사용
-function gcalEvents(){return (state.gcal||[]).map(g=>{const dt=pickDate(g.date);return dt?{date:dt,kind:'gcal',path:'',label:g.title,sub:'',extra:g.time||'',meta:g.allday?'종일':''}:null;}).filter(Boolean);}
-const order=e=>({consult:0,project:1,kit:2,reel:3,gcal:4}[e.kind]);
-const KCOL={consult:'var(--accent)',project:'var(--warning)',kit:'var(--good)',reel:'var(--s1)',gcal:'var(--ink-3)'};
+// 구글 캘린더 → 통합 캘린더. 제목 규칙으로 kind 분류(consult/work/personal/bill).
+// 서버(worker /gcal)가 g.kind를 이미 넣어주면 그걸 우선한다.
+function gcalKind(t,g){
+  if(g&&g.kind&&KIND[g.kind])return g.kind;
+  t=String(t||'');
+  if(/컨설팅|between RE:FEEEL|님\s*\d+\s*회차/i.test(t))return 'consult';
+  if(/결제일|납부|청구|카드값/.test(t))return 'bill';
+  if(/아마존|박람회|미팅|회의|솔루션|메타위크|마누스|스크립트|영상|업로드|납기|전달|세미나|촬영|리서치|리스팅|바이브|코딩|PPC|틱톡/i.test(t))return 'work';
+  if(/PT\d|필라테스|헬스|운동|생일|모임|약속|저녁|점심|술|요트|골프/i.test(t))return 'personal';
+  return 'personal';
+}
+function gcalClient(t){let m=String(t||'').match(/between RE:FEEEL and (.+?)\s*$/i);if(m)return m[1].trim();m=String(t||'').match(/^(.+?)님\b/);if(m)return m[1].trim();return '';}
+function gcalEvents(){return (state.gcal||[]).map(g=>{const dt=pickDate(g.date);if(!dt)return null;const kind=gcalKind(g.title,g);const cl=kind==='consult'?gcalClient(g.title):'';return {date:dt,kind,path:'',label:cl||g.title,sub:kind==='consult'?'1:1 컨설팅':'',extra:g.time||'',meta:g.allday?'종일':'',_g:1};}).filter(Boolean);}
+const order=e=>({consult:0,work:1,project:2,kit:3,reel:4,bill:5,personal:6,gcal:7}[e.kind]??9);
+const KCOL={consult:'var(--accent)',project:'var(--warning)',kit:'var(--good)',reel:'var(--s1)',work:'#0d9aa8',personal:'var(--ink-3)',bill:'var(--critical)',gcal:'var(--ink-3)'};
 /* gcal 로딩 실패 사유(0.1-#10) — 무음 대신 fetch 실패/파일없음을 구분해 state.gcalErr에 한 줄 남긴다. */
 async function fetchGcalLive(){
-  try{const r=await fetch('/api/gcal',{cache:'no-cache'});if(r.ok)return await r.json();state._gcalLiveErr='서버 응답 '+r.status;}
-  catch(e){state._gcalLiveErr='네트워크 연결 실패';}
+  try{
+    const pass=igPass();if(!pass){state._gcalLiveErr='IG 비번 미설정';return null;}
+    const r=await fetch(IG_API+'/gcal',{cache:'no-cache',headers:{'Authorization':'Bearer '+pass}});
+    if(r.ok){const j=await r.json();const arr=Array.isArray(j)?j:(j&&j.items)||[];return arr.length?arr:null;}
+    state._gcalLiveErr='서버 응답 '+r.status;
+  }catch(e){state._gcalLiveErr='네트워크 연결 실패';}
   return null;
 }
 async function readGcal(root){
@@ -1780,7 +1805,7 @@ function calWeek(events,ns){
   const start=s.mode==='day'?dayStart(s.anchor||today()):mondayOf(s.anchor||today());
   const cols=[];for(let i=0;i<ndays;i++){const c=new Date(start);c.setDate(start.getDate()+i);cols.push(c);}
   const timed=[], allday=cols.map(()=>[]);
-  cols.forEach((c,ci)=>{const k=dkey(c);events.filter(e=>dkey(e.date)===k).sort((a,b)=>order(a)-order(b)).forEach(e=>{const hm=(e.kind==='consult'||e.kind==='gcal')?parseHM(e.extra):null;if(hm!=null&&hm>=0&&hm<24)timed.push({e,ci,hm});else allday[ci].push(e);});});
+  cols.forEach((c,ci)=>{const k=dkey(c);events.filter(e=>dkey(e.date)===k).sort((a,b)=>order(a)-order(b)).forEach(e=>{const hm=e.extra?parseHM(e.extra):null;if(hm!=null&&hm>=0&&hm<24)timed.push({e,ci,hm});else allday[ci].push(e);});});
   let minH=9,maxH=18;timed.forEach(x=>{minH=Math.min(minH,Math.floor(x.hm));maxH=Math.max(maxH,Math.ceil(x.hm+1));});
   minH=Math.max(0,Math.min(minH,9));maxH=Math.min(24,Math.max(maxH,18));
   const hours=[];for(let hh=minH;hh<maxH;hh++)hours.push(hh);
@@ -1826,11 +1851,39 @@ function wireCalNs(){
   main.querySelectorAll('[data-day]').forEach(c=>c.onclick=()=>{const s=state.cal[c.dataset.ns];s.sel=s.sel===c.dataset.day?null:c.dataset.day;renderView();});
   main.querySelectorAll('[data-calview]').forEach(b=>b.onclick=()=>{const s=state.cal[b.dataset.ns];s.mode=b.dataset.calview;s.sel=undefined;renderView();});
   main.querySelectorAll('[data-clear]').forEach(el=>el.onclick=()=>{const s=state.cal[el.dataset.clear];if(s)s.sel=null;renderView();});
+  main.querySelectorAll('[data-calfilter]').forEach(b=>b.onclick=()=>{state.calFilter=b.dataset.calfilter;renderView();});
+}
+/* ── 통합 캘린더: 구글 일정(분류) + 볼트 발행(RE:KIT·릴스)을 한 캘린더로 ── */
+const CAL_FILTERS=[['all','전체'],['consult','컨설팅'],['work','업무'],['personal','개인'],['bill','결제'],['pub','발행']];
+function unifiedCalEvents(d){
+  const g=gcalEvents();                                   // 구글 = 스케줄 원장(미래 세션 포함)
+  const pub=calEvents(d).filter(e=>e.kind==='kit'||e.kind==='reel'); // 볼트 = 발행 레이어
+  return [...g,...pub];
+}
+function applyCalFilter(ev){const f=state.calFilter||'all';if(f==='all')return ev;if(f==='pub')return ev.filter(e=>e.kind==='kit'||e.kind==='reel');return ev.filter(e=>e.kind===f);}
+function calFilterBar(all){
+  const f=state.calFilter||'all';
+  const cnt=k=>k==='all'?all.length:k==='pub'?all.filter(e=>e.kind==='kit'||e.kind==='reel').length:all.filter(e=>e.kind===k).length;
+  return `<div class="calfilter">${CAL_FILTERS.map(([k,l])=>{const c=cnt(k);const col=k==='pub'?'var(--good)':KCOL[k];return `<button data-calfilter="${k}" class="chip ${f===k?'on':''}">${k==='all'?'':`<i style="background:${col}"></i>`}${l}${c?` <span style="opacity:.6;font-weight:600">${c}</span>`:''}</button>`;}).join('')}</div>`;
 }
 function viewCal(d){
-  const ev=calEvents(d), s=calState('all','week');
+  const all=unifiedCalEvents(d), ev=applyCalFilter(all), s=calState('all','week');
   const grid=s.mode==='month'?calMonthGrid(ev,'all',true):calWeek(ev,'all');
-  return head('Calendar','캘린더','세션·발행·릴스를 한눈에 — 주간 시간표.')+padOpen+grid+calList(ev,'all')+padClose;
+  let h=head('Calendar','캘린더','컨설팅·발행·개인 일정을 한곳에 — 구글 캘린더 연동.')+padOpen;
+  // 다가오는 일정(필터 적용) — 오늘부터 가까운 5건
+  const t=today(), up=ev.filter(e=>e.date>=t).sort((a,b)=>a.date-b.date||(parseHM(a.extra)??99)-(parseHM(b.extra)??99)).slice(0,5);
+  if(up.length){
+    h+=`<div class="card" style="padding:14px 18px;margin-bottom:14px"><div class="cst-tt" style="font-size:13px;margin-bottom:10px">다가오는 일정</div>`+
+      up.map(e=>{const dd=dkey(e.date)===dkey(t)?'오늘':dkey(e.date)===dkey(new Date(t.getTime()+864e5))?'내일':md(e.date);
+        return `<div class="item clk" data-note="${esc(e.path||'')}" style="grid-template-columns:52px 56px 1fr auto;padding:6px 0"><div class="d" style="font-weight:700">${dd}</div><div class="st" style="text-align:left;color:${KCOL[e.kind]};font-size:11px;font-weight:600">${KIND[e.kind].c}</div><div class="ti">${esc(e.label)} <span class="mt" style="font-weight:400">${esc(e.sub||'')}</span></div><div class="mt">${esc(e.extra||'')}</div></div>`;}).join('')+`</div>`;
+  }
+  h+=calFilterBar(all);
+  if(!gcalEvents().length){
+    const msg=state.gcalErr||'구글 캘린더 미연동 — 클로드에게 "구글 캘린더 새로 가져와줘"라고 하면 반영됩니다.';
+    h+=`<div class="sample-banner" style="margin-bottom:12px">📅 ${esc(msg)}</div>`;
+  }
+  h+=grid+calList(ev,'all');
+  return h+padClose;
 }
 function viewGcal(d){
   const ev=gcalEvents();
@@ -2851,7 +2904,7 @@ function igRenderReminders(){
     box.querySelectorAll('[data-rem]').forEach(cb=>cb.onclick=async()=>{try{await fetch(IG_API+'/reminder-toggle',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({id:cb.dataset.rem})});}catch(e){}});
   }).catch(()=>{box.innerHTML='';});
 }
-const VIEWS={home:viewHome,consult:viewConsult,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewGcal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ig:viewIg};
+const VIEWS={home:viewHome,consult:viewConsult,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewCal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ig:viewIg};
 const STATIC=['acct','revc','exec','jaeyun','capture','learn','read','ig'];
 function renderView(){
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.v===state.view));
