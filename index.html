@@ -2307,31 +2307,9 @@ function ddayChip(d){
   if(n===0)return '<span class="dday today">오늘</span>';
   return n>0?`<span class="dday">D-${n}</span>`:`<span class="dday past">D+${-n}</span>`;
 }
-function viewPrep(){
-  const list=prepList();
-  const sel=state.prepSel&&list.find(p=>p.path===state.prepSel);
-  if(sel)return prepBriefing(sel);
-  const t=today();
-  const up=list.filter(p=>p.d>=t).sort((a,b)=>a.d-b.d);
-  const past=list.filter(p=>p.d<t).sort((a,b)=>b.d-a.d);
-  let h=head('Session Prep','컨설팅 준비','세션을 띄워놓고 보는 브리핑 — 설문·계정 진단·원포인트. 7월 세션부터.');
-  h+=wrapStats(stat(up.length,'건','예정 세션',1)+stat(list.length,'','브리핑 준비')+stat(past.length,'','완료 (7월~)'));
-  h+=padOpen;
-  const row=p=>{
-    const c=prepCase(p),f=c?c.front:{};
-    const tz=prepAnswerLine(prepParsed(p));
-    return `<div class="item clk" data-prep="${esc(p.path)}" style="grid-template-columns:96px 1fr auto;align-items:center">
-      <div><div class="d">${md(p.d)}<span class="dw">${dow(p.d)}</span></div><div style="margin-top:5px">${ddayChip(p.d)}</div></div>
-      <div style="min-width:0"><div class="ti">${esc(p.client)} <a href="https://www.instagram.com/${esc(p.handle)}/" target="_blank" style="color:var(--accent);font-weight:700;font-size:12.5px">@${esc(p.handle)} ↗</a></div>
-        <div class="mt" style="margin-top:3px">${esc(f['상품']||'줌1:1')}${f['회차']?' · '+esc(f['회차'])+'회차':''}${f['세션시각']||f['세션시간']?' · '+esc(f['세션시각']||f['세션시간']):''}${f['트랙']?' · '+esc(f['트랙']):''}</div>
-        ${tz?`<div class="mt" style="margin-top:6px;color:var(--ink-2)">${esc(tz)}</div>`:''}</div>
-      <div class="st" style="color:var(--accent)">브리핑 →</div></div>`;
-  };
-  if(up.length)h+=`<div class="sec">📅 예정 세션 <span class="note">가까운 순 — 클릭하면 브리핑</span></div><div class="rule"></div>`+up.map(row).join('');
-  else h+=`<div class="empty">예정 세션이 없어요</div>`;
-  if(past.length)h+=`<div class="sec" style="margin-top:28px">지난 세션 <span class="note">7월 이후 · 복기용</span></div><div class="rule"></div>`+past.map(row).join('');
-  return h+padClose;
-}
+/* viewPrep(목록 화면) 삭제(PLAN §3.7·B5) — S9에서 view:'prep' 직접 라우팅이 제거된 뒤 어디서도 도달 불가했다
+   (제2의 viewBrand). 브리핑 자체(prepBriefing, bfwrap)는 viewConsult가 state.prepSel을 직접 체크해 호출하므로
+   이 삭제와 무관하게 살아있다 — prepList/prepCase/prepAnswerLine 등 공유 유틸도 그대로 유지. */
 /* 오늘의 답 한 줄 — 원포인트 인용의 첫 굵은 구절(작성 관례) 또는 앞부분 */
 function prepAnswerLine(pp){
   if(!pp.one)return '';
@@ -2702,8 +2680,8 @@ function igRenderReminders(){
     box.querySelectorAll('[data-rem]').forEach(cb=>cb.onclick=async()=>{try{await fetch(IG_API+'/reminder-toggle',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({id:cb.dataset.rem})});}catch(e){}});
   }).catch(()=>{box.innerHTML='';});
 }
-const VIEWS={home:viewHome,consult:viewConsult,prep:viewPrep,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewGcal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ig:viewIg};
-const STATIC=['prep','acct','revc','exec','jaeyun','capture','learn','read','ig'];
+const VIEWS={home:viewHome,consult:viewConsult,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewGcal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ig:viewIg};
+const STATIC=['acct','revc','exec','jaeyun','capture','learn','read','ig'];
 function renderView(){
   document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.v===state.view));
   if(!state.root&&!state.remote&&state.view!=='ig')return;
@@ -2721,7 +2699,6 @@ function renderView(){
   if(state.view==='reel')wireReelSort();
   if(state.view==='lint')wireLint();
   if(state.view==='ig')wireIg();
-  if(state.view==='prep')wirePrep();
   if(state.view==='consult'){wirePrep();wireConsult();}
   wireNotes();
 }
