@@ -2581,22 +2581,103 @@ function viewRevContent(){
   </table></div>`;
   return h+padClose;
 }
-/* ═══════════════ 이번 스프린트 ═══════════════ */
-const EXEC_PATH=['00_대시보드'], EXEC_FILE='재윤 OS — 실행 대시보드.md';
-async function loadExec(root){try{const dir=await getDir(root,EXEC_PATH);const h=await dir.getFileHandle(EXEC_FILE);const raw=await(await h.getFile()).text();return{raw,handle:h,path:EXEC_PATH.join('/')+'/'+EXEC_FILE};}catch(e){return{error:e.message};}}
+/* ═══════════════ 이번 스프린트(exec) — 노트 구조 파싱 렌더(PLAN §3.9-A, B5) ═══════════════
+   신명 우선 + 구명 폴백(빅뱅 금지, 3기기 동기화 시차 대비 — B5 리네이밍 체크리스트). ## 섹션마다 카드,
+   체크박스는 인터랙티브(학습뷰 writeCardBack과 같은 File System Access 쓰기 경로 재사용). dataview
+   블록은 옵시디언 전용이라 실행 대신 안내문으로 대체. */
+const EXEC_PATH=['00_대시보드'], EXEC_FILE='실행 대시보드.md', EXEC_FILE_OLD='재윤 OS — 실행 대시보드.md';
+async function loadExec(root){
+  let dir;try{dir=await getDir(root,EXEC_PATH);}catch(e){return{error:'폴더 없음'};}
+  for(const fname of [EXEC_FILE,EXEC_FILE_OLD]){
+    try{const h=await dir.getFileHandle(fname);const raw=await(await h.getFile()).text();return{raw,handle:h,path:EXEC_PATH.join('/')+'/'+fname};}catch(e){}
+  }
+  return{error:'파일 없음'};
+}
+function execParse(raw){
+  const body=cardBody(raw||'');
+  const lines=body.split(/\r?\n/);
+  const secs=[];let cur=null;
+  for(const ln of lines){
+    const h2=ln.match(/^##\s+(.+)$/);
+    if(h2){if(cur)secs.push(cur);cur={title:h2[1].trim(),lines:[]};continue;}
+    if(cur)cur.lines.push(ln);
+  }
+  if(cur)secs.push(cur);
+  return secs;
+}
+function execSecHtml(sec,idxRef){
+  let h='',buf=[],inDv=false;
+  const flush=()=>{if(buf.length){h+=mdLite(buf.join('\n'));buf=[];}};
+  for(const ln of sec.lines){
+    if(/^```dataview/.test(ln)){flush();inDv=true;continue;}
+    if(inDv){if(/^```/.test(ln)){inDv=false;h+=`<div class="mt" style="padding:6px 0">📊 Dataview 쿼리 — 옵시디언에서만 실행돼요(여기선 안 보임)</div>`;}continue;}
+    const cb=ln.match(/^(\s*[-*]\s+)\[([ xX])\]\s*(.*)$/);
+    if(cb){flush();const i=idxRef.i++;const done=/[xX]/.test(cb[2]);
+      h+=`<div class="ck ${done?'on':''}" data-cbidx="${i}"><span class="box">✓</span><span class="t">${mdInline(cb[3])}</span></div>`;
+      continue;}
+    buf.push(ln);
+  }
+  flush();
+  return h||`<div class="mt">(내용 없음)</div>`;
+}
+/* 스프린트 진행 게이지(cv-pace 자리) — "이번 스프린트 로드맵" 섹션(제목의 (M/D~M/D) 기간 포함)만 집계.
+   6원칙 체크(매일 초기화, 실행OS 뷰의 관심사)와는 다른 카운트라 섞지 않는다. */
+function execSprintStat(secs){
+  const rm=secs.find(s=>/스프린트\s*로드맵/.test(s.title));
+  if(!rm)return null;
+  const body=rm.lines.join('\n');
+  const total=(body.match(/^\s*[-*]\s+\[[ xX]\]/gm)||[]).length;
+  const done=(body.match(/^\s*[-*]\s+\[[xX]\]/gm)||[]).length;
+  const dm=rm.title.match(/\((\d{1,2})\/(\d{1,2})\s*[~-]\s*(\d{1,2})\/(\d{1,2})\)/);
+  let range=null,dday=null;
+  if(dm){
+    const y=today().getFullYear();
+    const end=new Date(y,+dm[3]-1,+dm[4]);
+    range=`${dm[1]}/${dm[2]}–${dm[3]}/${dm[4]}`;
+    dday=Math.round((end-today())/864e5);
+  }
+  return{total,done,pct:total?Math.round(done/total*100):0,range,dday};
+}
+function toggleExecCheckbox(idx){
+  const raw=state.exec.raw;let i=-1;
+  return raw.replace(/^(\s*[-*]\s+)\[([ xX])\](\s*)/gm,(m,pre,mark,sp)=>{
+    i++;if(i!==idx)return m;
+    return pre+'['+(/[xX]/.test(mark)?' ':'x')+']'+sp;
+  });
+}
 function viewExec(){
   if(state.exec===undefined){
     if(!state.execLoading){state.execLoading=true;loadExec(state.root).then(x=>{state.exec=x;state.execLoading=false;renderView();});}
     return head('Execution','이번 스프린트','로드맵 · 체크리스트 — 매일 본다.')+padOpen+'<div class="empty" style="padding:44px 0">실행판 읽는 중…</div>'+padClose;
   }
   const e=state.exec;
-  let h=head('Execution','이번 스프린트','로드맵 · 체크리스트 — 매일 본다. (데이터 = 재윤 OS 실행 대시보드 노트)')+padOpen;
-  if(e.error)return h+`<div class="warn">실행판 노트를 못 찾았어요 (<code>${esc(EXEC_PATH.join('/')+'/'+EXEC_FILE)}</code>). 볼트 루트(낙타)를 골랐는지 확인하세요.</div>`+padClose;
-  const vault=(state.root&&state.root.name)||'낙타';
-  h+=`<a class="ovopen" target="_blank" href="obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(EXEC_PATH.join('/')+'/'+EXEC_FILE.replace(/\.md$/,''))}" style="margin:2px 0 22px">옵시디언에서 열기(체크는 여기서) ↗</a>`;
-  const body=cardBody(e.raw||'').replace(/^(\s*[-*]\s+)\[ \]\s+/gm,'$1☐ ').replace(/^(\s*[-*]\s+)\[[xX]\]\s+/gm,'$1☑ ');
-  h+=`<div class="brandbody">`+mdLite(body)+`</div>`;
+  if(e.error){
+    return head('Execution','이번 스프린트','')+padOpen+`<div class="empty" style="text-align:left;border-left-color:var(--accent)">스프린트 노트가 없어요 — <code>${esc(EXEC_PATH.join('/')+'/'+EXEC_FILE)}</code>를 만들면 여기 렌더됩니다.<br><button class="btn btn-primary" id="execTemplate" style="margin-top:10px"${state.writable?'':' disabled title="쓰기 권한 필요"'}>템플릿으로 만들기</button></div>`+padClose;
+  }
+  const secs=execParse(e.raw);
+  const sp=execSprintStat(secs);
+  let h=`<div class="page-head"><div><div class="kicker">Execution</div><h1 class="page-title">이번 스프린트</h1><div class="page-sub">로드맵 · 체크리스트 — 매일 본다.${sp&&sp.range?` · ${sp.range}${sp.dday!=null?' · '+(sp.dday>=0?'D-'+sp.dday:(-sp.dday)+'일 지남'):''}`:''}</div></div></div>`;
+  h+=padOpen;
+  if(sp&&sp.total)h+=`<div class="card" style="padding:16px 20px;margin-bottom:16px"><div class="cardhead" style="padding:0 0 8px"><h3>스프린트 진행</h3><span class="mt">${sp.done}/${sp.total} 완료 · ${sp.pct}%</span></div><div class="steps-rail" style="height:6px"><i style="width:${sp.pct}%;background:${sp.pct>=100?'var(--good)':'var(--accent)'}"></i></div></div>`;
+  const idxRef={i:0};
+  for(const sec of secs)h+=`<div class="card" style="padding:16px 20px;margin-bottom:16px"><div class="cardhead" style="padding:0 0 8px"><h3>${esc(sec.title)}</h3></div>${execSecHtml(sec,idxRef)}</div>`;
+  h+=`<a class="btn btn-ghost" target="_blank" href="obsidian://open?vault=${encodeURIComponent((state.root&&state.root.name)||'낙타')}&file=${encodeURIComponent(e.path.replace(/\.md$/,''))}">옵시디언에서 열기 ↗</a>`;
   return h+padClose;
+}
+function wireExec(){
+  main.querySelectorAll('[data-cbidx]').forEach(el=>el.onclick=async()=>{
+    const idx=+el.dataset.cbidx, nr=toggleExecCheckbox(idx);
+    el.classList.toggle('on');state.exec.raw=nr;
+    if(!state.writable)return;
+    try{const w=await state.exec.handle.createWritable();await w.write(nr);await w.close();}catch(e){}
+  });
+  const t=$('#execTemplate');
+  if(t)t.onclick=async()=>{
+    if(!state.writable){alert('쓰기 권한이 없어요. 볼트를 다시 열어 "편집 허용"을 누르세요.');return;}
+    const content=`---\ntitle: 실행 대시보드\ntype: 지식노트\ncreated: ${new Date().toISOString().slice(0,10)}\n---\n\n## 이번 스프린트 목표\n- [ ] \n`;
+    try{await writeFile(state.root,EXEC_PATH,EXEC_FILE,content);state.exec=undefined;renderView();}
+    catch(e){alert('생성 실패: '+e.message);}
+  };
 }
 
 /* ═══════════════ 라우팅 ═══════════════ */
@@ -2699,6 +2780,7 @@ function renderView(){
   if(state.view==='reel')wireReelSort();
   if(state.view==='lint')wireLint();
   if(state.view==='ig')wireIg();
+  if(state.view==='exec')wireExec();
   if(state.view==='consult'){wirePrep();wireConsult();}
   wireNotes();
 }
