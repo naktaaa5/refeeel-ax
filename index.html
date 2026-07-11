@@ -1717,14 +1717,15 @@ async function fetchGcalLive(){
 }
 async function readGcal(root){
   const live=await fetchGcalLive();
-  if(live){state.gcalErr='';return live;}
+  if(live){state.gcalErr='';state.gcalErrKind='';return live;}
   try{
     const dir=await getDir(root,['40_프로젝트','통합워크스페이스']);
     const fh=await dir.getFileHandle('gcal.json');
     const data=JSON.parse(await(await fh.getFile()).text());
-    state.gcalErr='';
+    state.gcalErr='';state.gcalErrKind='';
     return data;
   }catch(e){
+    state.gcalErrKind=state._gcalLiveErr?'network':'nofile';
     state.gcalErr=(state._gcalLiveErr||'실시간 연동 없음')+' · 로컬 gcal.json도 없음('+(e.name||'파일 접근 실패')+')';
     return [];
   }
@@ -1824,12 +1825,29 @@ function viewCal(d){
   const grid=s.mode==='month'?calMonthGrid(ev,'all',true):calWeek(ev,'all');
   return head('Calendar','캘린더','세션·발행·릴스를 한눈에 — 주간 시간표.')+padOpen+grid+calList(ev,'all')+padClose;
 }
-function viewGcal(){
-  const ev=gcalEvents(), s=calState('gcal','week');
+function viewGcal(d){
+  const ev=gcalEvents();
+  /* 이 뷰의 존재 이유: 구글 개인 일정과 업무(세션·프로젝트 납기)가 같은 날 겹치면 바로 보이게(§3.9-C). */
+  if(!ev.length){
+    const msg=state.gcalErrKind==='network'?'라이브 연동 실패 — gcal.json 폴백도 없음':'통합워크스페이스/gcal.json을 만들면 표시됩니다(형식: [{date,title,time}])';
+    return head('Schedule','전체 일정','구글 캘린더 — 개인 일정 포함 전체 스케줄.')+padOpen+`<div class="empty">${esc(msg)}</div>`+padClose;
+  }
+  const s=calState('gcal','week');
   const grid=s.mode==='month'?calMonthGrid(ev,'gcal',true):calWeek(ev,'gcal');
-  const note=`<div class="empty" style="padding:18px 0 4px;font-size:12.5px">구글 캘린더 전체(개인 일정 포함) · ${ev.length}건. 새로고침은 클로드에게 "구글 캘린더 새로 가져와줘".</div>`;
-  if(!ev.length)return head('Schedule','전체 일정','구글 캘린더 — 개인 일정 포함 전체 스케줄.')+padOpen+`<div class="empty">불러온 일정이 없어요 — ${esc(state.gcalErr||'gcal.json 확인')}</div>`+padClose;
-  return head('Schedule','전체 일정','구글 캘린더 — 개인 일정 포함 전체 스케줄.')+padOpen+grid+calList(ev,'gcal')+note+padClose;
+  const t=today(), tmr=new Date(t);tmr.setDate(tmr.getDate()+1);
+  const work=calEvents(d||{cases:[],kits:[],reels:[],errs:[]}).filter(e=>e.kind==='consult'||e.kind==='project');
+  const workDays=new Set(work.map(e=>dkey(e.date)));
+  const near=ev.filter(e=>dkey(e.date)===dkey(t)||dkey(e.date)===dkey(tmr)).sort((a,b)=>a.date-b.date||(parseHM(a.extra)??99)-(parseHM(b.extra)??99));
+  let h=head('Schedule','전체 일정','구글 캘린더 — 개인 일정 포함 전체 스케줄. 업무(세션·납기)와 겹치면 표시.')+padOpen;
+  h+=`<div class="sec">오늘·내일</div><div class="rule"></div>`;
+  h+=!near.length?`<div class="empty" style="padding:14px 0">오늘·내일엔 개인 일정이 없어요</div>`:near.map(e=>{
+    const conf=workDays.has(dkey(e.date));
+    return `<div class="item" style="grid-template-columns:52px 1fr auto"><div class="d">${dkey(e.date)===dkey(t)?'오늘':'내일'}</div><div class="ti">${esc(e.label)}${e.extra?` <span class="mt" style="font-weight:400">${esc(e.extra)}</span>`:''}</div><div>${conf?'<span class="pill pill-warning">세션과 같은 날</span>':''}</div></div>`;
+  }).join('');
+  h+=`<div style="margin-top:16px">${grid}</div>`;
+  h+=calList(ev,'gcal');
+  h+=`<div class="empty" style="padding:18px 0 4px;font-size:12.5px">구글 캘린더 전체(개인 일정 포함) · ${ev.length}건. 새로고침은 클로드에게 "구글 캘린더 새로 가져와줘".</div>`;
+  return h+padClose;
 }
 
 /* ═══════════════ 실행 OS (구 '재윤 OS' — B2-c 리네이밍, data-v="jaeyun" 키는 불변) ═══════════════
