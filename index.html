@@ -964,6 +964,15 @@ function viewConsult(d){
       h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="background:${LB[key][1]};color:#fff;font-size:11.5px;font-weight:700;padding:3px 11px;border-radius:999px;flex:none;white-space:nowrap">${LB[key][0]} ${g.length}</span>${g.sort((a,b)=>b.dt-a.dt).map(a=>`<span class="chip clk" data-note="${esc(a.path)}" style="cursor:pointer">${esc(a.nm)}</span>`).join('')}</div>`;}
     h+=`</div></div>`;
   }
+  /* ── 리포트 발행 (완료 클라이언트 + URL) — 발행 후 케이스노트 front['리포트']에 URL 등록하면 여기 뜸 ── */
+  const pub=d.cases.filter(p=>p.front['리포트']&&!isGuide(p.front))
+    .map(p=>({nm:p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,''),url:String(p.front['리포트']),d:pickDate(p.front['세션일']),path:p.path,sent:/발송완료/.test(p.front['발송상태']||'')}))
+    .sort((a,b)=>((a.d?+a.d:0)<(b.d?+b.d:0)?1:-1));
+  if(pub.length){
+    h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">리포트 발행 <span class="cst-cnt">${pub.length}</span></div><div class="cst-sub">완료된 요약 리포트 · 열기 / 전달 상태</div></div></div><div class="evlist">`;
+    h+=pub.map(p=>`<div class="cst-ev" style="cursor:default"><div class="cst-evd"><span class="n">${p.d?md(p.d):'—'}</span><span class="w">${p.d?dow(p.d):''}</span></div><div class="cst-evb"><div class="ti">${esc(p.nm)}</div><div class="cst-evm"><span class="cst-badge green">완료</span>${p.sent?'<span class="cst-badge blue">전달완료</span>':'<span class="cst-badge amber">전달 예정</span>'}<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;text-decoration:none">리포트 열기 ↗</a><span class="mt clk" data-note="${esc(p.path)}" style="cursor:pointer;text-decoration:underline">노트</span></div></div></div>`).join('');
+    h+=`</div></div>`;
+  }
   /* ── 전략가이드라인 (별개 상품: 대면 미팅 시작 → 약 1개월 문서 결과물) ── */
   const gc=caseRows.filter(p=>isGuide(p.front)).sort((a,b)=>b.d-a.d);
   if(gc.length){
