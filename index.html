@@ -798,7 +798,7 @@ function activityRow(e){
 }
 function viewHome(d){
   const t=today();
-  const up=d.cases.map(p=>({...p,d:pickDate(p.front['세션일'])})).filter(p=>p.d&&p.d>=t).sort((a,b)=>a.d-b.d);
+  const up=d.cases.map(p=>({...p,d:pickDate(p.front['세션일'])})).filter(p=>p.d&&p.d>=t&&svc(p.front)==='세션').sort((a,b)=>a.d-b.d);
   const reels=reelRows(d);
   const totViews=reels.reduce((a,r)=>a+r.v,0);
   const totSave=reels.reduce((a,r)=>a+r.save,0);
@@ -922,7 +922,7 @@ function viewConsult(d){
   if(psel)return prepBriefing(psel);                        // 브리핑 = 별도 페이지
   const t=today();
   const caseRows=d.cases.map(p=>({...p,d:pickDate(p.front['세션일'])})).filter(p=>p.d);
-  const upCases=caseRows.filter(p=>p.d>=t&&!isGuide(p.front)).sort((a,b)=>a.d-b.d);
+  const upCases=caseRows.filter(p=>p.d>=t&&svc(p.front)==='세션').sort((a,b)=>a.d-b.d);
   const notices=consultNotices(d,t);
   let h=head('Consulting','컨설팅','예정·확인 요망·할 일을 한 화면에. 세션을 누르면 브리핑이 별도로 열려요.')+padOpen;
   /* ── Row 1: 세션 캘린더 | 예정 컨설팅 ── */
@@ -952,7 +952,7 @@ function viewConsult(d){
   /* ── 진행 상태 파이프라인 (compact) ── */
   const catOf=st=>{st=(st||'').trim();return /^진행중/.test(st)?'진행중':/^draft/i.test(st)?'draft':/^drop/i.test(st)?'drop':null;};
   const am={};
-  d.cases.forEach(p=>{const c=catOf(p.front['status']);if(!c)return;const nm=p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');const dt=pickDate(p.front['세션일'])||0;if(!am[nm]||dt>am[nm].dt)am[nm]={nm,c,dt,path:p.path};});
+  d.cases.forEach(p=>{if(svc(p.front)!=='세션')return;const c=catOf(p.front['status']);if(!c)return;const nm=p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');const dt=pickDate(p.front['세션일'])||0;if(!am[nm]||dt>am[nm].dt)am[nm]={nm,c,dt,path:p.path};});
   const acts=Object.values(am);
   if(acts.length){
     const LB={'진행중':['진행중','var(--green)'],'draft':['draft','var(--ink)'],'drop':['drop','var(--mut2)']};
@@ -962,7 +962,7 @@ function viewConsult(d){
     h+=`</div></div>`;
   }
   /* ── 리포트 발행 (완료 클라이언트 + URL) — 발행 후 케이스노트 front['리포트']에 URL 등록하면 여기 뜸 ── */
-  const pub=d.cases.filter(p=>p.front['리포트']&&!isGuide(p.front))
+  const pub=d.cases.filter(p=>p.front['리포트']&&svc(p.front)==='세션')
     .map(p=>({nm:p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,''),url:String(p.front['리포트']),d:pickDate(p.front['세션일']),path:p.path,sent:/발송완료/.test(p.front['발송상태']||'')}))
     .sort((a,b)=>((a.d?+a.d:0)<(b.d?+b.d:0)?1:-1));
   if(pub.length){
@@ -971,7 +971,7 @@ function viewConsult(d){
     h+=`</div></div>`;
   }
   /* ── 전략가이드라인 (별개 상품: 대면 미팅 시작 → 약 1개월 문서 결과물) ── */
-  const gc=caseRows.filter(p=>isGuide(p.front)).sort((a,b)=>b.d-a.d);
+  const gc=caseRows.filter(p=>svc(p.front)==='프로젝트').sort((a,b)=>b.d-a.d);
   if(gc.length){
     h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">전략가이드라인</div><div class="cst-sub">별개 상품 · 대면 미팅 시작 → 약 1개월 문서 결과물</div></div></div><div class="evlist">`;
     h+=gc.map(p=>{
@@ -988,16 +988,19 @@ function viewConsult(d){
   return h+padClose;
 }
 /* 확인 요망 — 막힌 단계 자동 감지 (발송 D+3 · 설문 미제출 · 재방문) */
-const isGuide=f=>/가이드라인/.test((f&&f['상품'])||'');   // 전략가이드라인 = 줌1:1과 별개 상품
+/* 서비스 리듬: 세션(줌1:1 등 반복형) vs 프로젝트(가이드라인·조니 AD솔루션 등 월단위 착수→납품).
+   '서비스' 필드가 정본, 없으면 '상품' 자유텍스트 regex로 폴백 추정(구 isGuide 대체 — 조니처럼 '가이드라인'이 아닌
+   '프로젝트' 표기 상품도 잡히도록 폭을 넓힘). PLAN_ax대시보드_v1 §3.1 */
+const svc=f=>(f&&f['서비스'])||(/가이드라인|프로젝트/.test((f&&f['상품'])||'')?'프로젝트':'세션');
 function consultNotices(d,t){
   const D=864e5;
-  const rows=d.cases.map(p=>({d:pickDate(p.front['세션일']),nm:p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,''),sent:/발송완료/.test(p.front['발송상태']||''),path:p.path,front:p.front})).filter(x=>x.d&&!isGuide(x.front));
+  const rows=d.cases.map(p=>({d:pickDate(p.front['세션일']),nm:p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,''),sent:/발송완료/.test(p.front['발송상태']||''),path:p.path,front:p.front})).filter(x=>x.d&&svc(x.front)==='세션');
   const hasSurvey=nm=>(state.surveys||[]).some(s=>(s.folder||'').replace(/\s*\(.*/,'').trim()===nm);
   // 설문 미제출 — 예정 세션 임박, 가장 시급 (먼저)
   const survey=rows.filter(x=>x.d>=t&&(x.d-t)<14*D&&!hasSurvey(x.nm)).sort((a,b)=>a.d-b.d).map(x=>{const dd=Math.round((x.d-t)/D);return{sev:dd<=3?'red':'amber',nm:x.nm,t:'설문 미제출',s:'세션 전 설문 응답 없음',badge:dd===0?'오늘':'D-'+dd,path:x.path};});
   // draft — 진행 확정 안 된 케이스 (날짜·진행 미확정)
   const dseen=new Set(),draft=[];
-  d.cases.forEach(p=>{const f=p.front;if(isGuide(f)||!/draft/i.test(String(f['status']||'')))return;const nm=f['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');if(dseen.has(nm))return;dseen.add(nm);draft.push({sev:'amber',nm,t:'세션 미확정 (draft)',s:'일정·진행 확정 필요 — 잡을지 결정',badge:'draft',path:p.path});});
+  d.cases.forEach(p=>{const f=p.front;if(svc(f)==='프로젝트'||!/draft/i.test(String(f['status']||'')))return;const nm=f['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');if(dseen.has(nm))return;dseen.add(nm);draft.push({sev:'amber',nm,t:'세션 미확정 (draft)',s:'일정·진행 확정 필요 — 잡을지 결정',badge:'draft',path:p.path});});
   // 리포트 발송 확인 — 최근 3~21일 줌1:1만 넛지 (오래된 미표기는 발송 완료로 간주)
   const report=rows.filter(x=>x.d<t&&!x.sent&&(t-x.d)>3*D&&(t-x.d)<=21*D).sort((a,b)=>b.d-a.d).map(x=>{const dd=Math.round((t-x.d)/D);return{sev:'amber',nm:x.nm,t:'리포트·제안서 발송',s:`세션 후 ${dd}일 · 발송상태 미표기`,badge:'D+'+dd,path:x.path};});
   return [...survey, ...draft, ...report];
@@ -1360,7 +1363,7 @@ function wireReelSort(){
 const KIND={consult:{c:'컨설팅',cls:'consult'},kit:{c:'RE:KIT',cls:'kit'},reel:{c:'릴스',cls:'reel'},gcal:{c:'일정',cls:'gcal'}};
 function calEvents(d){
   const ev=[];
-  (d.cases||[]).forEach(p=>{const dt=pickDate(p.front['세션일']);if(dt)ev.push({date:dt,kind:'consult',path:p.path,label:p.front['이름']||p.name.replace('.md',''),sub:p.front['상품']||'',extra:p.front['세션시각']||p.front['세션시간']||'',meta:p.front['status']||''});});
+  (d.cases||[]).forEach(p=>{const dt=pickDate(p.front['세션일']);if(dt)ev.push({date:dt,kind:'consult',path:p.path,label:p.front['이름']||p.name.replace('.md',''),sub:p.front['상품']||'',extra:p.front['세션시각']||p.front['세션시간']||'',meta:p.front['status']||'',svc:svc(p.front)});});
   (d.kits||[]).forEach(p=>{const dt=pickDate(p.front['발행일']);if(dt)ev.push({date:dt,kind:'kit',path:p.path,label:p.front['콘텐츠명']||p.name.replace('.md',''),sub:'KIT'+(p.front['번호']||''),extra:p.front['category']||'',meta:''});});
   (d.reels||[]).forEach(p=>{const dt=pickDate(p.front['published']);if(dt)ev.push({date:dt,kind:'reel',path:p.path,label:p.front['title']||p.name.replace('.md',''),sub:num(N(p.front['조회수']))+' 조회',extra:'',meta:''});});
   return ev;
@@ -1797,7 +1800,7 @@ function viewQueue(){
 function viewCRM(d){
   const t=today();
   const rows=d.cases.map(p=>({p,path:p.path,d:pickDate(p.front['세션일']),name:p.front['이름']||p.name.replace('.md',''),
-    prod:p.front['상품']||'',rep:N(p.front['회차']),sent:/발송완료/.test(p.front['발송상태']||'')})).filter(x=>x.d);
+    prod:p.front['상품']||'',rep:N(p.front['회차']),sent:/발송완료/.test(p.front['발송상태']||'')})).filter(x=>x.d&&svc(x.p.front)==='세션');
   const upcoming=rows.filter(x=>x.d>=t).sort((a,b)=>a.d-b.d);
   const followup=rows.filter(x=>x.d<t&&!x.sent).sort((a,b)=>b.d-a.d);
   const sent=rows.filter(x=>x.sent), repeat=rows.filter(x=>x.rep>=2);
