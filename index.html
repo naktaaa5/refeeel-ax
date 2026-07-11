@@ -1921,9 +1921,9 @@ function viewRead(){
     const isDone=x=>/## 🎬 큐레이션 요약/.test(x.raw)||/##\s*왜 담았나/.test(x.raw), hasScr=x=>/## 📄 전체 스크립트/.test(x.raw);
     const done=list.filter(isDone).length;
     const readN=list.filter(x=>isRead(x.name)).length;
-    h+=wrapStats(stat(list.length,'','수집 영상',1)+stat(done,'','정리 완료')+stat(readN,'','읽음')+stat(list.length-readN,'','안 읽음'));
+    h+=statRow([['수집 영상',list.length],['정리 완료',done],['읽음',readN],['안 읽음',list.length-readN]]);
     h+=padOpen;
-    h+=`<div style="display:flex;gap:8px;margin:8px 0 4px"><input type="text" id="rdUrl" placeholder="유튜브 링크 붙여넣기 → 블로그 요약 (한 개씩)" style="flex:1"><button class="act" id="rdAdd" style="margin-top:0;white-space:nowrap">＋ 요약 추가</button></div><div id="rdAddMsg" class="mt" style="margin-bottom:10px"></div>`;
+    h+=`<div style="display:flex;gap:8px;margin:8px 0 4px"><input type="text" id="rdUrl" placeholder="유튜브 링크 붙여넣기 → 블로그 요약 (한 개씩)" style="flex:1"><button class="btn btn-primary" id="rdAdd" style="white-space:nowrap">＋ 요약 추가</button></div><div id="rdAddMsg" class="mt" style="margin-bottom:10px"></div>`;
     const chans={};list.forEach(x=>{const c=channelOf(x);chans[c]=(chans[c]||0)+1;});
     const chanKeys=Object.keys(chans).sort((a,b)=>chans[b]-chans[a]);
     const curCh=state.readChannel||'all';
@@ -1968,12 +1968,12 @@ function viewRead(){
   else h+=`<div class="postempty">아직 요약이 없어요 — 아래 「블로그 요약 생성」을 눌러줘.</div>`;
   h+=`</article>`;
   // 액션: 요약 생성(없을 때) + 전체 스크립트는 원문이 노트에 있을 때만 토글(없으면 버튼 자체를 숨겨 서버호출 에러 방지).
-  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 4px">${hasSum?'':`<button class="act" id="rdSum" style="margin-top:0">📝 블로그 요약 생성</button>`}<button class="act" id="rdScript" style="margin-top:0;background:transparent;color:var(--ink);border:1px solid var(--surface-2)">📄 ${trText?(state.readScript?'전체 스크립트 접기':'전체 스크립트 보기'):'전체 스크립트 가져오기'}</button><button class="act" id="rdRead" style="margin-top:0;background:transparent;color:${isRead(c.name)?'var(--good)':'var(--ink-2)'};border:1px solid var(--surface-2)">${isRead(c.name)?`✓ 읽음 ${esc(readDate(c.name))} · 취소`:'○ 안 읽음으로'}</button></div><div id="rdGenMsg" class="mt" style="margin-bottom:8px"></div>`;
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 4px">${hasSum?'':`<button class="btn btn-primary" id="rdSum">📝 블로그 요약 생성</button>`}<button class="btn btn-ghost" id="rdScript">📄 ${trText?(state.readScript?'전체 스크립트 접기':'전체 스크립트 보기'):'전체 스크립트 가져오기'}</button><button class="btn btn-ghost" id="rdRead" style="color:${isRead(c.name)?'var(--good)':'var(--ink-2)'}">${isRead(c.name)?`✓ 읽음 ${esc(readDate(c.name))} · 취소`:'○ 안 읽음으로'}</button></div><div id="rdGenMsg" class="mt" style="margin-bottom:8px"></div>`;
   if(state.readScript&&trText)h+=`<div class="transcript">${esc(trText)}</div>`;
   h+=`<div class="sec">📌 내 메모 <span class="note">이게 카드 재료가 돼</span></div><div class="rule"></div>`;
   h+=`<input type="text" id="rdReason" class="ph" placeholder="이유 — 왜 좋았나?" value="${esc(reasonOf(c))}">`;
   h+=`<input type="text" id="rdOut" placeholder="아웃풋 — 어디 쓸까 (RE:KIT/릴스/클래스/컨설팅…)" value="${esc(c.front['output']&&c.front['output']!=='미정'?c.front['output']:'')}" style="margin-top:12px">`;
-  h+=`<div><button class="act" id="rdSave">메모 저장 (볼트에)</button><span id="rdMsg" class="mt"></span></div>`;
+  h+=`<div style="margin-top:16px"><button class="btn btn-primary" id="rdSave">메모 저장 (볼트에)</button><span id="rdMsg" class="mt"></span></div>`;
   return h+'</div>'+padClose;
 }
 function wireRead(){
@@ -2069,17 +2069,17 @@ function viewLearn(){
   if(state.learnQueue===undefined)buildQueue();
   const due=cards.filter(c=>{const d=pickDate(c.front['다음복습일']);return !d||d<=today();});
   let h=head('실행 OS','학습 · 능동 회상','문제를 골라 답하고, AI에게 사고 피드백을 받는다.');
-  h+=wrapStats(stat(due.length,'장','복습 대기',1)+stat(cards.length,'','전체 카드'));
+  h+=statRow([['복습 대기',due.length,'장'],['전체 카드',cards.length]]);
   h+=padOpen;
   if(!cards.length)return h+`<div class="empty">학습 카드가 없어요 — 볼트 <code>학습/</code> 폴더 확인</div>`+padClose;
   if(!due.length)return h+`<div class="empty">오늘 복습 끝 🎉<br><span style="font-size:13px;color:var(--ink-3)">맞힌 카드는 '마지막학습' 시간이 볼트에 적립됐어요</span></div>`+padClose;
   const c=state.learnSel&&cards.find(x=>x.name===state.learnSel);
   if(!c){
-    h+=`<div class="sec">문제 고르기 <span class="note">대기 ${due.length}개 · 골라서 풀기</span></div><div class="rule"></div>`;
+    h+=`<div class="cathd">문제 고르기 <span style="text-transform:none;letter-spacing:0;font-weight:500">대기 ${due.length}개 · 골라서 풀기</span></div>`;
     for(const k of due.slice(0,6))h+=`<div class="ck" data-pick="${esc(k.name)}" style="align-items:center"><span class="box" style="border-color:var(--accent);color:var(--accent);font-weight:700">?</span><span class="t"><span style="font-size:10.5px;letter-spacing:.1em;color:var(--accent);font-weight:700">${esc(k.front['주제']||'')}</span><br>${esc(k.front['질문']||'')}</span></div>`;
     return h+padClose;
   }
-  h+=`<div style="margin:6px 0 14px"><button class="act" id="lrBack" style="background:transparent;color:var(--ink-3);border:1px solid var(--surface-2);margin-top:0;padding:7px 14px">← 목록으로</button></div>`;
+  h+=`<div style="margin:6px 0 14px"><button class="btn btn-ghost" id="lrBack">← 목록으로</button></div>`;
   h+=`<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700">${esc(c.front['주제']||'')}</div>`;
   h+=`<div style="font-size:23px;font-weight:700;line-height:1.5;margin:8px 0 24px">${esc(c.front['질문']||'')}</div>`;
   if(state.learnGrading){
@@ -2087,12 +2087,12 @@ function viewLearn(){
     h+=`<div class="empty">🤖 AI가 사고를 채점 중…</div>`;
   }else if(!state.learnRevealed){
     h+=`<textarea id="lrA" rows="7" placeholder="내 말로 추론해서 답해보세요 (메커니즘·판단·내 일에의 적용까지)">${esc(state.learnAnswer||'')}</textarea>`;
-    h+=`<div style="display:flex;gap:10px"><button class="act" id="lrGrade">🤖 AI 채점받기</button><button class="act" id="lrShow" style="background:transparent;color:var(--ink);border:1px solid var(--surface-2)">답만 보기</button></div>`;
+    h+=`<div style="display:flex;gap:10px"><button class="btn btn-primary" id="lrGrade">🤖 AI 채점받기</button><button class="btn btn-ghost" id="lrShow">답만 보기</button></div>`;
   }else{
     h+=`<div class="kicker" style="margin-top:6px">내 답</div><div style="white-space:pre-wrap;font-size:14.5px;color:var(--ink-2);padding:8px 0 16px;border-bottom:1px solid var(--surface-2)">${esc(state.learnAnswer||'(빈 답)')}</div>`;
     if(state.learnFeedback)h+=`<div class="kicker" style="margin-top:22px;color:var(--accent)">AI 피드백</div><div style="white-space:pre-wrap;font-size:14px;line-height:1.85;padding:14px 16px;background:var(--surface-2);border-radius:12px;margin-top:4px">${esc(state.learnFeedback)}</div>`;
     h+=`<div class="kicker" style="margin-top:22px;color:var(--ink-3)">모범답안</div><div style="white-space:pre-wrap;font-size:15px;line-height:1.8;padding:8px 0">${esc(c.body||'')}</div>`;
-    h+=`<div style="margin-top:26px;display:flex;gap:10px;align-items:center"><button class="act" id="lrGood" style="background:var(--good)">맞음 ✓</button><button class="act" id="lrAgain" style="background:transparent;color:var(--accent);border:1px solid var(--accent)">틀림 ✕ (다시)</button></div>`;
+    h+=`<div style="margin-top:26px;display:flex;gap:10px;align-items:center"><button class="btn btn-primary" id="lrGood" style="background:var(--good)">맞음 ✓</button><button class="btn btn-ghost" id="lrAgain" style="color:var(--accent);border-color:var(--accent)">틀림 ✕ (다시)</button></div>`;
   }
   return h+padClose;
 }
@@ -2194,12 +2194,15 @@ function viewQueue(){
   if(!items.length)return h+padOpen+'<div class="empty" style="padding:40px 0">큐 항목이 없어요 — <code>40_프로젝트/*/00_큐.md</code> 확인</div>'+padClose;
   const t=today();
   const sched=items.filter(it=>it.d&&it.d>=t).sort((a,b)=>a.d-b.d);
-  h+=wrapStats(stat(items.length,'','큐 항목',1)+stat(items.filter(it=>stageOf(it)==='초안').length,'','초안')+stat(sched.length,'건','발행 예정'));
+  h+=statRow([['큐 항목',items.length],['초안',items.filter(it=>stageOf(it)==='초안').length],['발행 예정',sched.length,'건']]);
   h+=padOpen;
-  if(sched.length){h+=`<div class="sec">📅 다가오는 발행 <span class="note">날짜순</span></div><div class="rule"></div>`+sched.map(qRow).join('');}
+  // 발행 리듬(PLAN §3.7 cv-pace 자리) — 목표수치가 없는 파이프라인이라 단계 구성비 스택바로 "흐름"을 보여준다
+  const segCol={기획:'var(--ink-3)',초안:'var(--warning)',예약:'var(--accent)',발행:'var(--good)',기타:'var(--surface-3)'};
+  h+=`<div style="display:flex;height:8px;border-radius:999px;overflow:hidden;margin:2px 0 18px">${['기획','초안','예약','발행','기타'].map(st=>{const c=items.filter(it=>stageOf(it)===st).length;const w=c/items.length*100;return w?`<div style="width:${w}%;background:${segCol[st]}" title="${st} ${c}건"></div>`:'';}).join('')}</div>`;
+  if(sched.length){h+=`<div class="cathd">📅 다가오는 발행 <span style="text-transform:none;letter-spacing:0;font-weight:500">날짜순</span></div>`+sched.map(qRow).join('');}
   for(const st of ['기획','초안','예약','발행','기타']){
     const g=items.filter(it=>stageOf(it)===st);
-    if(g.length)h+=`<div class="sec">${STAGE_LABEL[st]} <span class="note">${g.length}</span></div><div class="rule"></div>`+g.map(qRow).join('');
+    if(g.length)h+=`<div class="cathd">${STAGE_LABEL[st]} <span style="text-transform:none;letter-spacing:0;font-weight:500">${g.length}</span></div>`+g.map(qRow).join('');
   }
   return h+padClose;
 }
