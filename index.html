@@ -728,7 +728,7 @@
   <div class="nav" data-v="acct"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg> 재무 P&L</div>
   <div class="nav" data-v="revc"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="5" height="9" rx="1"/><rect x="10" y="6" width="5" height="14" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg> 매출×콘텐츠</div>
 
-  <div class="navsec">재윤 OS</div>
+  <div class="navsec">실행 OS</div>
   <div class="nav" data-v="exec"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg> 이번 스프린트</div>
   <div class="nav" data-v="jaeyun"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg> 원칙·오늘</div>
   <div class="nav" data-v="learn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M7 9v5c0 1.5 2.5 3 5 3s5-1.5 5-3V9"/></svg> 학습</div>
@@ -1760,14 +1760,14 @@ function viewGcal(){
   return head('Schedule','전체 일정','구글 캘린더 — 개인 일정 포함 전체 스케줄.')+padOpen+grid+calList(ev,'gcal')+note+padClose;
 }
 
-/* ═══════════════ 재윤 OS ═══════════════
-   원칙 정본은 볼트 노트 00_대시보드/재윤OS_원칙.md — 코드는 이 노트를 읽어 렌더한다(PLAN §4-7).
+/* ═══════════════ 실행 OS (구 '재윤 OS' — B2-c 리네이밍, data-v="jaeyun" 키는 불변) ═══════════════
+   원칙 정본은 볼트 노트 00_대시보드/실행OS_원칙.md — 코드는 이 노트를 읽어 렌더한다(PLAN §4-7).
    노트가 없거나(원격/모바일 모드 등) 읽기 실패하면 하드코딩 배열로 폴백(빅뱅 금지). */
 const JY_FALLBACK=['이해부터, 그다음 수집 — 넣기 전 "내 말 한 줄"','데이터와 인터페이스를 분리','만들기 전 GitHub부터 (찾아 튜닝)','모델보다 하네스를 의심','논술형 회상으로 이해 점검','클로드 코드를 손에 익힌다'];
 async function loadJyPrinciples(root){
   try{
     const dir=await getDir(root,['00_대시보드']);
-    const fh=await dir.getFileHandle('재윤OS_원칙.md');
+    const fh=await dir.getFileHandle('실행OS_원칙.md');
     const body=cardBody(await(await fh.getFile()).text());
     const items=[...body.matchAll(/^\s*\d+\.\s+(.+)$/gm)].map(m=>m[1].trim());
     return items.length?items:JY_FALLBACK;
@@ -1777,12 +1777,12 @@ const JYNUM='①②③④⑤⑥⑦⑧⑨⑩';
 function viewJaeyun(){
   if(state.jyPrinciples===undefined){
     if(!state.jyLoading){state.jyLoading=true;loadJyPrinciples(state.root).then(items=>{state.jyPrinciples=items;state.jyLoading=false;renderView();});}
-    return head('재윤 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.')+padOpen+'<div class="empty" style="padding:48px 0">원칙 불러오는 중…</div>'+padClose;
+    return head('실행 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.')+padOpen+'<div class="empty" style="padding:48px 0">원칙 불러오는 중…</div>'+padClose;
   }
   const JY=state.jyPrinciples;
   const key='jy-'+new Date().toISOString().slice(0,10);
   const st=JSON.parse(localStorage.getItem(key)||'[]');
-  let h=head('재윤 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.');
+  let h=head('실행 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.');
   h+=padOpen+'<div class="rule"></div>'+JY.map((t,i)=>`<div class="ck ${st.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t"><b>${JYNUM[i]||(i+1)}</b> ${esc(t)}</span></div>`).join('')+padClose;
   return h;
 }
@@ -1962,7 +1962,7 @@ function viewLearn(){
   const cards=state.cards||[];
   if(state.learnQueue===undefined)buildQueue();
   const due=cards.filter(c=>{const d=pickDate(c.front['다음복습일']);return !d||d<=today();});
-  let h=head('재윤 OS','학습 · 능동 회상','문제를 골라 답하고, AI에게 사고 피드백을 받는다.');
+  let h=head('실행 OS','학습 · 능동 회상','문제를 골라 답하고, AI에게 사고 피드백을 받는다.');
   h+=wrapStats(stat(due.length,'장','복습 대기',1)+stat(cards.length,'','전체 카드'));
   h+=padOpen;
   if(!cards.length)return h+`<div class="empty">학습 카드가 없어요 — 볼트 <code>학습/</code> 폴더 확인</div>`+padClose;
@@ -2612,7 +2612,7 @@ function wireLearn(){
   const g=$('#lrGood');if(g)g.onclick=()=>gradeCurrent(true);
   const a=$('#lrAgain');if(a)a.onclick=()=>gradeCurrent(false);
 }
-/* 재윤OS 체크리스트 KV 동기화 — localStorage 키(jy-YYYY-MM-DD, '매일 초기화')는 그대로 두고, 비번(igpass)
+/* 실행OS 체크리스트 KV 동기화 — localStorage 키(jy-YYYY-MM-DD, '매일 초기화')는 그대로 두고, 비번(igpass)
    있으면 KV(GET /jaeyun, POST /jaeyun-put, {items:[{date,checked:[...]}]})로 3기기 공유. 클릭마다 로컬 전체를
    그대로 PUT(다른 기기 GET이 없어도 안전 — 로컬이 오늘자의 전체 진실이므로 병합 불필요), 페이지 로드 시 1회
    GET으로 다른 기기가 먼저 체크한 게 있으면 병합. 비번 없으면 기존 로컬 전용 동작 그대로(회귀 없음). */
