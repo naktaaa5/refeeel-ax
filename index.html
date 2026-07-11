@@ -1910,11 +1910,36 @@ function viewJaeyun(){
   </div>`;
   return h+padClose;
 }
+/* §3.9-D: 3대상 세그(Inbox·KV할일·KV리마인더) 단일 입력창 + 오늘 캡처 피드백.
+   Inbox=볼트 파일(state.writable 필요), 할일=loadCTodos/saveCTodos(consult 보드와 동일 KV), 리마인더=/reminders·/reminders-put(igpass 필요, 로컬 폴백 없음). */
 function viewCapture(){
-  return head('Inbox','빠른 캡처','떠오른 생각을 볼트 10_Inbox에 바로 저장.')+padOpen+
-   `<input type="text" id="capT" class="ph" placeholder="제목 (선택)">
-    <textarea id="capB" rows="7" placeholder="내용을 적고 저장하면 볼트에 .md로 들어갑니다." style="margin-top:14px"></textarea>
-    <div><button class="act" id="capS">10_Inbox에 저장</button></div><div id="capM"></div>`+padClose;
+  const tgt=state.captTarget||'inbox';
+  const feed=(state.captureFeed||[]).filter(x=>x.day===todayStr());
+  let h=head('Inbox','빠른 캡처','떠오른 생각을 저장 — Inbox(볼트)·할 일·리마인더 중 골라서.')+padOpen;
+  h+=`<div class="ptabs">${[['inbox','Inbox'],['todo','할 일'],['remind','리마인더']].map(([k,l])=>`<button class="ptab ${tgt===k?'on':''}" data-captgt="${k}">${l}</button>`).join('')}</div>`;
+  if(tgt==='inbox'){
+    h+=`<input type="text" id="capT" class="ph" placeholder="제목 (선택)" style="margin-top:14px">
+    <textarea id="capB" rows="7" placeholder="내용을 적고 저장하면 볼트 10_Inbox에 .md로 들어갑니다." style="margin-top:10px"></textarea>
+    <div style="margin-top:10px"><button class="btn btn-primary" id="capS">10_Inbox에 저장</button></div>`;
+    if(!state.writable)h+=`<div class="warn">쓰기 권한이 없어요 — 볼트를 다시 열어 "편집 허용"을 눌러야 저장돼요.</div>`;
+  }else if(tgt==='todo'){
+    h+=`<div style="display:flex;gap:8px;margin-top:14px"><input type="text" id="capQ" class="ph" placeholder="할 일 한 줄 — Enter로 저장" style="flex:1;margin:0"><button class="btn btn-primary" id="capS">추가</button></div>
+    <div class="mt" style="margin-top:8px">컨설팅 뷰 '할 일' 보드와 3기기 공용(KV) — 저장하면 거기서도 바로 보여요.</div>`;
+  }else{
+    const pass=localStorage.getItem('igpass');
+    if(!pass){
+      h+=`<div class="empty" style="margin-top:14px">리마인더는 IG 인박스와 같은 비밀번호(3기기 공용 KV)가 필요해요.</div>
+      <div style="margin-top:10px"><button class="btn btn-primary" id="capSetPass">비밀번호 설정</button></div>`;
+    }else{
+      h+=`<div style="display:flex;gap:8px;margin-top:14px"><input type="text" id="capQ" class="ph" placeholder="리마인더 한 줄 — Enter로 저장" style="flex:1;margin:0"><input type="date" id="capDue" style="width:150px"><button class="btn btn-primary" id="capS">추가</button></div>
+      <div class="mt" style="margin-top:8px">홈 화면 상단 '📌 잊지말 것'과 3기기 공용(KV).</div>`;
+    }
+  }
+  h+=`<div id="capM"></div>`;
+  h+=`<div class="sec" style="margin-top:22px">오늘 캡처</div><div class="rule"></div>`;
+  h+=!feed.length?`<div class="empty" style="padding:14px 0">오늘 저장한 게 아직 없어요 — 위에서 첫 캡처를 남겨보세요.</div>`
+    :feed.slice().reverse().map(x=>`<div class="item" style="grid-template-columns:56px 1fr auto"><div class="mt">${esc(x.time)}</div><div class="ti">${esc(x.text)}</div><div class="mt">${esc(x.tgtLabel)}</div></div>`).join('');
+  return h+padClose;
 }
 /* ═══════════════ 콘텐츠(읽기) — /summarize · /transcript · 메모 저장 ═══════════════ */
 function cardBody(raw){const m=raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/);return m?m[1].trim():'';}
@@ -2897,17 +2922,45 @@ function wireJaeyun(){
   }
 }
 function wireCapture(){
-  $('#capS').onclick=async()=>{
-    const m=$('#capM'),title=$('#capT').value.trim(),body=$('#capB').value.trim();
-    if(!body){m.innerHTML='<div class="warn">내용을 입력하세요</div>';return;}
-    if(!state.writable){m.innerHTML='<div class="warn">쓰기 권한이 없어요. 볼트를 다시 열어 "편집 허용"을 누르세요.</div>';return;}
-    const now=new Date(),pad=n=>String(n).padStart(2,'0');
-    const stamp=`${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-    const fname=`캡처_${stamp}.md`;
-    const content=`---\ntitle: ${title||'빠른 캡처 '+stamp}\ncreated: ${now.toISOString().slice(0,10)}\ntype: 캡처\nsource: RE:FEEEL AX\ntags: [inbox, 캡처]\n---\n\n${body}\n`;
-    try{await writeFile(state.root,['10_Inbox'],fname,content);m.innerHTML=`<div class="ok">✓ 저장됨 → <code>10_Inbox/${esc(fname)}</code> · 옵시디언에서 확인돼요.</div>`;$('#capB').value='';$('#capT').value='';}
-    catch(e){m.innerHTML='<div class="warn">저장 실패: '+esc(e.message)+'</div>';}
-  };
+  main.querySelectorAll('[data-captgt]').forEach(b=>b.onclick=()=>{state.captTarget=b.dataset.captgt;renderView();});
+  const logFeed=(text,tgtLabel)=>{state.captureFeed=state.captureFeed||[];state.captureFeed.push({day:todayStr(),time:new Date().toTimeString().slice(0,5),text:text.slice(0,90),tgtLabel});};
+  const tgt=state.captTarget||'inbox';
+  if(tgt==='inbox'){
+    const btn=$('#capS');if(btn)btn.onclick=async()=>{
+      const m=$('#capM'),title=$('#capT').value.trim(),body=$('#capB').value.trim();
+      if(!body){m.innerHTML='<div class="warn">내용을 입력하세요</div>';return;}
+      if(!state.writable){m.innerHTML='<div class="warn">쓰기 권한이 없어요. 볼트를 다시 열어 "편집 허용"을 누르세요.</div>';return;}
+      const now=new Date(),pad=n=>String(n).padStart(2,'0');
+      const stamp=`${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const fname=`캡처_${stamp}.md`;
+      const content=`---\ntitle: ${title||'빠른 캡처 '+stamp}\ncreated: ${now.toISOString().slice(0,10)}\ntype: 캡처\nsource: RE:FEEEL AX\ntags: [inbox, 캡처]\n---\n\n${body}\n`;
+      try{await writeFile(state.root,['10_Inbox'],fname,content);logFeed(title||body,'Inbox');renderView();}
+      catch(e){m.innerHTML='<div class="warn">저장 실패: '+esc(e.message)+'</div>';}
+    };
+  }else if(tgt==='todo'){
+    const commit=()=>{const inp=$('#capQ'),v=(inp.value||'').trim();if(!v)return;const a=loadCTodos();a.push({t:v,done:false});saveCTodos(a);logFeed(v,'할 일');renderView();};
+    const btn=$('#capS');if(btn)btn.onclick=commit;
+    const inp=$('#capQ');if(inp)inp.onkeydown=e=>{if(e.key==='Enter')commit();};
+  }else{
+    const sp=$('#capSetPass');if(sp)sp.onclick=()=>{const p=prompt('IG 인박스/리마인더 비밀번호를 입력하세요');if(p){localStorage.setItem('igpass',p);renderView();}};
+    const pass=localStorage.getItem('igpass');
+    if(pass){
+      const commit=async()=>{
+        const inp=$('#capQ'),due=$('#capDue'),m=$('#capM'),v=(inp.value||'').trim();if(!v)return;
+        m.innerHTML='<div class="mt">저장 중…</div>';
+        try{
+          const r=await fetch(IG_API+'/reminders',{headers:{'Authorization':'Bearer '+pass}});
+          const data=r.ok?await r.json():{items:[]};
+          const items=Array.isArray(data.items)?data.items:[];
+          items.push({id:'r'+Date.now(),text:v,due:(due&&due.value)||'',done:false});
+          await fetch(IG_API+'/reminders-put',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({items})});
+          logFeed(v,'리마인더');renderView();
+        }catch(e){m.innerHTML='<div class="warn">저장 실패: '+esc(e.message)+'</div>';}
+      };
+      const btn=$('#capS');if(btn)btn.onclick=commit;
+      const inp=$('#capQ');if(inp)inp.onkeydown=e=>{if(e.key==='Enter')commit();};
+    }
+  }
 }
 
 /* ═══════════════ 설정 모달 (SERVER_BASE) ═══════════════ */
