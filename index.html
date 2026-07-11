@@ -1092,9 +1092,26 @@ function consultNotices(d,t){
   return [...survey, ...draft, ...report];
 }
 /* 할 일 — 브라우저 로컬 저장(수동) */
+/* KV 동기화(3기기 공용, IG 인박스/리마인더와 동일 워커·비번 재사용) — 비번(igpass) 있으면 KV 우선,
+   없으면 조용히 localStorage만(IG처럼 비번 프롬프트를 강제하지 않는다). KV 라우트: GET /todos, POST /todos-put
+   (통째 덮어쓰기, {items:[...]}). PLAN §4-3·G-1 */
 const CTKEY='ax-consult-todo';
 function loadCTodos(){try{return JSON.parse(localStorage.getItem(CTKEY)||'[]');}catch(e){return[];}}
-function saveCTodos(a){try{localStorage.setItem(CTKEY,JSON.stringify(a));}catch(e){}}
+function saveCTodos(a){
+  try{localStorage.setItem(CTKEY,JSON.stringify(a));}catch(e){}
+  const pass=localStorage.getItem('igpass');
+  if(pass)fetch(IG_API+'/todos-put',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({items:a})}).catch(()=>{});
+}
+function ctSyncFromKV(){
+  const pass=localStorage.getItem('igpass');if(!pass)return;
+  fetch(IG_API+'/todos',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():null).then(data=>{
+    if(!data||!Array.isArray(data.items))return;
+    const local=loadCTodos();
+    if(!data.items.length&&local.length){saveCTodos(local);return;}   // KV가 비어있는 첫 동기화면 로컬을 씨딩(지우지 않는다)
+    localStorage.setItem(CTKEY,JSON.stringify(data.items));
+    refreshCTodos();
+  }).catch(()=>{});
+}
 function renderCTodos(a){
   if(!a.length)return `<div class="empty" style="padding:16px 0">할 일이 없어요. 아래에 추가하세요.</div>`;
   return a.map((it,i)=>`<div class="cst-td"><span class="cst-ck ${it.done?'on':''}" data-tgl="${i}">${it.done?'✓':''}</span><span class="cst-tdx ${it.done?'done':''}">${esc(it.t)}</span><button class="cst-tdel" data-del="${i}">✕</button></div>`).join('');
@@ -1111,6 +1128,7 @@ function wireConsult(){
   if(add)add.onclick=commit;
   if(inp)inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();commit();}};
   bindCTodoRows();
+  ctSyncFromKV();   // 비번 있으면 KV 최신본으로 패치(다른 기기에서 추가한 할일 반영)
 }
 /* ═══════════════ RE:KIT ═══════════════ */
 function viewKit(d){
@@ -2430,12 +2448,26 @@ function wireLearn(){
   const g=$('#lrGood');if(g)g.onclick=()=>gradeCurrent(true);
   const a=$('#lrAgain');if(a)a.onclick=()=>gradeCurrent(false);
 }
+/* 재윤OS 체크리스트 KV 동기화 — localStorage 키(jy-YYYY-MM-DD, '매일 초기화')는 그대로 두고, 비번(igpass)
+   있으면 KV(GET /jaeyun, POST /jaeyun-put, {items:[{date,checked:[...]}]})로 3기기 공유. 클릭마다 로컬 전체를
+   그대로 PUT(다른 기기 GET이 없어도 안전 — 로컬이 오늘자의 전체 진실이므로 병합 불필요), 페이지 로드 시 1회
+   GET으로 다른 기기가 먼저 체크한 게 있으면 병합. 비번 없으면 기존 로컬 전용 동작 그대로(회귀 없음). */
 function wireJaeyun(){
-  const key='jy-'+new Date().toISOString().slice(0,10);
+  const key='jy-'+new Date().toISOString().slice(0,10), date=key.slice(3);
+  const pass=localStorage.getItem('igpass');
+  const paint=()=>{const st=JSON.parse(localStorage.getItem(key)||'[]');main.querySelectorAll('.ck').forEach(el=>el.classList.toggle('on',st.includes(+el.dataset.i)));};
+  const pushKV=()=>{if(!pass)return;const st=JSON.parse(localStorage.getItem(key)||'[]');fetch(IG_API+'/jaeyun-put',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({items:[{date,checked:st}]})}).catch(()=>{});};
   main.querySelectorAll('.ck').forEach(el=>el.onclick=()=>{
     let st=JSON.parse(localStorage.getItem(key)||'[]');const i=+el.dataset.i;
     st.includes(i)?st=st.filter(x=>x!==i):st.push(i);localStorage.setItem(key,JSON.stringify(st));el.classList.toggle('on');
+    pushKV();
   });
+  if(pass){
+    fetch(IG_API+'/jaeyun',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():{items:[]}).then(data=>{
+      const entry=(data.items||[]).find(x=>x.date===date);
+      if(entry&&Array.isArray(entry.checked)&&entry.checked.length){localStorage.setItem(key,JSON.stringify(entry.checked));paint();}
+    }).catch(()=>{});
+  }
 }
 function wireCapture(){
   $('#capS').onclick=async()=>{
