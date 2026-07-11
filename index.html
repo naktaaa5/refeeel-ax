@@ -238,6 +238,9 @@
   .diag-t{font-size:13.5px;font-weight:600;color:var(--ink)}
   .diag-p{font-size:12.5px;color:var(--ink-2);margin-top:2px}
   .diag-ev{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-3);background:var(--surface-2);border-radius:999px;padding:2px 9px;margin-top:7px}
+  /* 콘텐츠 영역 카테고리 헤더 — ops .nav-label 톤(사이드바 .navsec와 동일 스펙, 본문용) */
+  .cathd{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:18px 0 8px}
+  .cathd:first-child{margin-top:0}
   /* ops-view cv-pace 파생 — 진척 스테퍼(PLAN §2.2 원문). milestones(case)가 계산한 값을 렌더 */
   .steps{display:flex;flex-direction:column;gap:5px;min-width:150px}
   .steps-rail{height:4px;border-radius:999px;background:var(--surface-3);overflow:hidden}
@@ -2562,52 +2565,62 @@ const IG_API='https://refeeel-ig.naktaaa00.workers.dev';
 const IG_CAT={consulting:['🔥','컨설팅 문의','#c0392b'],collab:['🤝','협업·체험 제안','#8a6d1f']};
 function igPass(){let p=localStorage.getItem('igpass');if(!p){p=prompt('IG 인박스 비밀번호를 입력하세요');if(p)localStorage.setItem('igpass',p);}return p||'';}
 function igHdr(){return {'Content-Type':'application/json','Authorization':'Bearer '+igPass()};}
+/* IG 인박스(PLAN §3.5) — 인라인 style 전면 제거 → .card+diag 계열 문법, 비번 미설정은 sample-banner
+   (에러 아님, .empty 좌보더를 accent로). 항목 카드는 이미 만든 .diag/.diag-ic/.diag-body를 재사용
+   (ops-view엔 이 정확한 리스트-아이템 조합이 없어 §1.4 diag 문법을 그대로 확장). */
 function viewIg(){
-  let h=head('Instagram','IG 인박스','계정 @nak__ta__ · 분류·초안 자동, 발송은 승인 후 클로드. 윈도우·맥·아이폰 공용.');
+  let h=head('Instagram','IG 인박스','계정 @nak__ta__ · 분류·초안 자동, 발송은 승인 후 클로드. 윈도우·맥·아이폰 공용.')+padOpen;
+  if(!localStorage.getItem('igpass')){
+    return h+`<div class="empty" style="text-align:left;border-left-color:var(--accent)">IG 인박스는 비밀번호로 3기기가 같은 인박스를 봅니다 — 아직 이 기기엔 없어요.<br><button class="btn btn-primary" id="igSetPass" style="margin-top:10px">비밀번호 입력</button></div>`+padClose;
+  }
   if(state.igQueue===undefined){
     if(!state.igLoading){state.igLoading=true;
       fetch(IG_API+'/ig-queue',{headers:igHdr()}).then(r=>{if(r.status===401){localStorage.removeItem('igpass');throw new Error('비밀번호가 틀렸어요 — 아래 버튼으로 다시 입력');}return r.json();})
       .then(q=>{state.igQueue=q;state.igLoading=false;renderView();})
       .catch(e=>{state.igQueue={error:e.message,items:[]};state.igLoading=false;renderView();});}
-    return h+'<div class="empty">불러오는 중…</div>';
+    return h+'<div class="empty">불러오는 중…</div>'+padClose;
   }
   const q=state.igQueue;
-  if(q.error) return h+`<div class="warn">${esc(q.error)}</div><div style="margin-top:10px"><button class="act" id="igReauth">비밀번호 다시 입력</button></div>`;
+  if(q.error) return h+`<div class="empty" style="text-align:left;border-left-color:var(--critical)">${esc(q.error)}</div><div style="margin-top:10px"><button class="btn btn-ghost" id="igReauth">비밀번호 다시 입력</button></div>`+padClose;
   const items=(q.items||[]);
   const act=items.filter(x=>IG_CAT[x.category]&&x.status!=='dismissed'&&x.status!=='sent');
   const ppl=items.filter(x=>x.category==='personal'&&x.status!=='dismissed');
   h+=`<div class="mt" style="margin:2px 0 14px">마지막 트리아지: ${esc((q.updated||'').slice(0,16).replace('T',' ')||'-')} · 스팸 ${q.spamFiltered||0}건 자동 제외 · <span style="color:var(--ink-3)">새 DM 갱신은 클로드에게 “IG 확인해줘”</span></div>`;
-  if(!act.length&&!ppl.length) return h+'<div class="empty">확인할 새 메시지 없음</div>';
-  for(const it of act){
+  if(!act.length&&!ppl.length) return h+'<div class="empty">확인할 새 메시지 없음</div>'+padClose;
+  const itemHtml=it=>{
     const c=IG_CAT[it.category], approved=it.status==='approved';
-    h+=`<div style="border:1px solid var(--line);border-radius:10px;padding:14px 15px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
-        <div><b>${c[0]} ${esc(it.handle)}</b> <span class="mt">· ${esc(it.received||'')} · ${esc(it.folder==='requests'?'요청함':'받은함')}</span></div>
-        <span style="font-size:11px;font-weight:700;color:${c[2]}">${esc(c[1])}</span></div>
-      <div style="white-space:pre-wrap;font-size:13px;line-height:1.6;background:rgba(0,0,0,.035);border-radius:7px;padding:9px 11px;max-height:150px;overflow:auto;margin-bottom:10px">${esc(it.message||'')}</div>
-      ${it.note?`<div class="warn" style="margin:0 0 9px">⚠️ ${esc(it.note)}</div>`:''}
+    return `<div class="diag" style="margin-bottom:12px"><div class="diag-ic warning">${diagIconSvg}</div><div class="diag-body">
+      <div class="diag-t">${esc(it.handle)}</div>
+      <div class="diag-ev" style="margin-top:2px">${esc(it.received||'')} · ${esc(it.folder==='requests'?'요청함':'받은함')}</div>
+      <div class="diag-p" style="white-space:pre-wrap;line-height:1.6;background:var(--surface-2);border-radius:7px;padding:9px 11px;max-height:150px;overflow:auto;margin:8px 0">${esc(it.message||'')}</div>
+      ${it.note?`<div class="diag-ev" style="color:var(--warning);background:var(--warning-bg)">⚠️ ${esc(it.note)}</div>`:''}
       ${approved
         ? `<div class="ok">✅ 승인됨 — 다음 실행 때 클로드가 발송</div><details style="margin-top:6px"><summary class="mt" style="cursor:pointer">승인한 초안 보기</summary><div style="white-space:pre-wrap;font-size:13px;padding:6px 2px">${esc(it.draft||'')}</div></details>`
-        : `<div class="mt" style="margin-bottom:4px">초안 <span class="note">수정 가능 — 고친 내용으로 발송돼</span></div>
-           <textarea data-igd="${esc(it.id)}" rows="5" style="width:100%;font-size:13px">${esc(it.draft||'')}</textarea>
+        : `<textarea data-igd="${esc(it.id)}" rows="5" style="width:100%;font-size:13px;margin-top:4px">${esc(it.draft||'')}</textarea>
            <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
-             <button class="act igApprove" data-ig="${esc(it.id)}" style="margin-top:0">✓ 승인 (발송 대기)</button>
-             <button class="act igCopy" data-ig="${esc(it.id)}" style="margin-top:0;background:transparent;color:var(--ink-3);border-color:var(--line)">복사</button>
-             <button class="act igDismiss" data-ig="${esc(it.id)}" style="margin-top:0;background:transparent;color:var(--ink-3);border-color:var(--line)">무시</button>
+             <button class="btn btn-primary igApprove" data-ig="${esc(it.id)}">승인</button>
+             <button class="btn btn-ghost igCopy" data-ig="${esc(it.id)}">복사</button>
+             <button class="btn btn-ghost igDismiss" data-ig="${esc(it.id)}">건너뛰기</button>
            </div>`}
-    </div>`;
+    </div></div>`;
+  };
+  for(const catKey of Object.keys(IG_CAT)){
+    const catItems=act.filter(x=>x.category===catKey);
+    if(!catItems.length)continue;
+    h+=`<div class="cathd">${IG_CAT[catKey][0]} ${esc(IG_CAT[catKey][1])}</div>`+catItems.map(itemHtml).join('');
   }
   if(ppl.length){
-    h+=`<div class="sec">💬 지인·개인 <span class="note">직접 답장 — 자동화 안 함</span></div><div class="rule"></div>`;
+    h+=`<div class="cathd">💬 지인·개인 <span style="text-transform:none;letter-spacing:0;font-weight:500">직접 답장 — 자동화 안 함</span></div><div class="rule"></div>`;
     for(const it of ppl) h+=`<div class="item" style="grid-template-columns:1fr auto"><div><div class="ti">${esc(it.handle)}</div><div class="mt">${esc((it.message||'').slice(0,90))}</div></div><div class="mt">${esc(it.received||'')}</div></div>`;
   }
-  return h;
+  return h+padClose;
 }
 function wireIg(){
   const refetch=()=>{state.igQueue=undefined;renderView();};
   const draftOf=id=>{const ta=main.querySelector('[data-igd="'+CSS.escape(id)+'"]');return ta?ta.value:undefined;};
+  const sp=$('#igSetPass');if(sp)sp.onclick=()=>{const p=prompt('IG 인박스 비밀번호를 입력하세요');if(p){localStorage.setItem('igpass',p);refetch();}};
   const ra=$('#igReauth');if(ra)ra.onclick=()=>{localStorage.removeItem('igpass');refetch();};
-  main.querySelectorAll('.igApprove').forEach(b=>b.onclick=async()=>{const id=b.dataset.ig;b.disabled=true;b.textContent='승인 중…';try{await fetch(IG_API+'/ig-approve',{method:'POST',headers:igHdr(),body:JSON.stringify({id,draft:draftOf(id)})});refetch();}catch(e){b.disabled=false;b.textContent='✓ 승인 (발송 대기)';alert('연결 실패: '+e.message);}});
+  main.querySelectorAll('.igApprove').forEach(b=>b.onclick=async()=>{const id=b.dataset.ig;b.disabled=true;b.textContent='승인 중…';try{await fetch(IG_API+'/ig-approve',{method:'POST',headers:igHdr(),body:JSON.stringify({id,draft:draftOf(id)})});refetch();}catch(e){b.disabled=false;b.textContent='승인';alert('연결 실패: '+e.message);}});
   main.querySelectorAll('.igDismiss').forEach(b=>b.onclick=async()=>{const id=b.dataset.ig;try{await fetch(IG_API+'/ig-dismiss',{method:'POST',headers:igHdr(),body:JSON.stringify({id})});refetch();}catch(e){alert('연결 실패: '+e.message);}});
   main.querySelectorAll('.igCopy').forEach(b=>b.onclick=()=>{const v=draftOf(b.dataset.ig);if(v!=null){navigator.clipboard.writeText(v);const t=b.textContent;b.textContent='복사됨 ✓';setTimeout(()=>b.textContent=t,1200);}});
 }
@@ -2620,10 +2633,10 @@ function igRenderReminders(){
     const t=new Date().toISOString().slice(0,10);
     const rows=items.map(it=>{
       const overdue=it.due&&!it.done&&it.due<t, soon=it.due&&!it.done&&it.due===t;
-      const due=it.due?`<span style="font-size:11px;font-weight:700;color:${overdue||soon?'#c0392b':'var(--ink-3)'}">${overdue?'⚠️ 기한 지남':soon?'⚠️ 오늘까지':'~'+it.due}</span>`:'';
-      return `<label style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;cursor:pointer;${it.done?'opacity:.5':''}"><input type="checkbox" data-rem="${esc(it.id)}" ${it.done?'checked':''} style="margin-top:2px"><span style="flex:1"><span style="${it.done?'text-decoration:line-through':''};font-size:13.5px">${esc(it.text)}</span> ${due}${it.url?` · <a href="${esc(it.url)}" target="_blank" style="color:var(--accent)">열기 ↗</a>`:''}</span></label>`;
+      const due=it.due?`<span style="font-size:11px;font-weight:700;color:${overdue||soon?'var(--critical)':'var(--ink-3)'}">${overdue?'⚠️ 기한 지남':soon?'⚠️ 오늘까지':'~'+it.due}</span>`:'';
+      return `<label style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;cursor:pointer;${it.done?'opacity:.5':''}"><input type="checkbox" data-rem="${esc(it.id)}" ${it.done?'checked':''} style="margin-top:2px;accent-color:var(--accent)"><span style="flex:1"><span style="${it.done?'text-decoration:line-through':''};font-size:13.5px">${esc(it.text)}</span> ${due}${it.url?` · <a href="${esc(it.url)}" target="_blank" style="color:var(--accent)">열기 ↗</a>`:''}</span></label>`;
     }).join('');
-    box.innerHTML=`<div style="border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin:4px 0 18px;background:rgba(0,0,0,.02)"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📌 잊지말 것</div>${rows}</div>`;
+    box.innerHTML=`<div class="card" style="padding:12px 15px;margin:4px 0 18px"><div style="font-weight:700;font-size:13px;margin-bottom:4px">📌 잊지말 것</div>${rows}</div>`;
     box.querySelectorAll('[data-rem]').forEach(cb=>cb.onclick=async()=>{try{await fetch(IG_API+'/reminder-toggle',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({id:cb.dataset.rem})});}catch(e){}});
   }).catch(()=>{box.innerHTML='';});
 }
