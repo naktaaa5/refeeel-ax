@@ -234,6 +234,18 @@
   .diag-t{font-size:13.5px;font-weight:600;color:var(--ink)}
   .diag-p{font-size:12.5px;color:var(--ink-2);margin-top:2px}
   .diag-ev{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-3);background:var(--surface-2);border-radius:999px;padding:2px 9px;margin-top:7px}
+  /* ops-view cv-pace 파생 — 진척 스테퍼(PLAN §2.2 원문). milestones(case)가 계산한 값을 렌더 */
+  .steps{display:flex;flex-direction:column;gap:5px;min-width:150px}
+  .steps-rail{height:4px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+  .steps-rail i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .3s}
+  .steps.done .steps-rail i{background:var(--good)}
+  .steps-dots{display:flex;justify-content:space-between;margin-top:-9px;padding:0 1px}
+  .sd{width:8px;height:8px;border-radius:999px;background:var(--surface);border:1.5px solid var(--axis)}
+  .sd.done{background:var(--accent);border-color:var(--accent)}
+  .sd.done.warn{background:var(--warning);border-color:var(--warning)}
+  .sd.half{background:linear-gradient(90deg,var(--accent) 50%,var(--surface) 50%);border-color:var(--accent)}
+  .steps-cap{font-size:11px;color:var(--ink-3)}
+  .steps-cap .cd{color:var(--warning);font-weight:550;margin-left:4px}
   .pill.deep{color:var(--good);background:#e7f5ee}
   .pill.flat{color:var(--ink-3);background:var(--surface-2)}
   .pill.new{color:var(--ink-3);background:var(--surface-2)}
@@ -806,17 +818,19 @@ async function loadData(root){
     readFolder(root,['40_프로젝트','RE-KIT','90_발행본']),
     readFolder(root,['40_프로젝트','릴스분석자동화','릴스노트']),
   ]);
-  // 컨설팅 준비 소스: 사전분석.md + 설문_*.md (70_컨설팅케이스/클라이언트/<이름 (핸들)>/…)
-  const prep=[],surveys=[];
+  // 컨설팅 준비 소스: 사전분석.md + 설문_*.md + *초안* (70_컨설팅케이스/클라이언트/<이름 (핸들)>/…)
+  // drafts: milestones()의 프로젝트형 '초안 반칸' 파생 신호(PLAN §2.1) — 신설 필드 없이 파일명만으로 감지
+  const prep=[],surveys=[],drafts=[];
   for(const p of con.items){
     const parts=p.path.split('/');
     if(parts[1]!=='클라이언트')continue;
     if(parts.length===5&&p.name==='사전분석.md'&&/사전분석/.test(parts[3]))prep.push({...p,folder:parts[2],session:parts[3]});
     else if(parts.length===4&&/^설문/.test(p.name))surveys.push({...p,folder:parts[2]});
+    if(/초안/.test(p.name))drafts.push({folder:parts[2],path:p.path});
   }
   return{cases:con.items.filter(p=>p.front['세션일']),kits:kit.items.filter(p=>p.front['번호']),
     reels:reel.items.filter(p=>p.front['조회수']!==undefined||p.front['shortcode']),
-    prep,surveys,
+    prep,surveys,drafts,
     errs:[con,kit,reel].filter(x=>x.error).map(x=>x.error)};
 }
 
@@ -1165,6 +1179,50 @@ const readStatus=f=>String((f&&(f['status']||f['진행상태']))||'').trim();
 /* 수금 배지 — `수금` 필드(신설) 우선, 없으면 `진행상태`(허용된 폴백 필드) 자유문의 "잔금대기" 어휘 인식.
    '상태' 필드는 여전히 어디서도 읽지 않는다(PLAN §3.2·§7). */
 const jangeum=f=>{if(f&&f['수금'])return String(f['수금']).trim();return /잔금\s*대기/.test(String((f&&f['진행상태'])||''))?'잔금대기':'';};
+/* ═══════════════ 진척 스테퍼(PLAN §2) — milestones(case) ═══════════════
+   전량 파생, 신설 필수 필드 0. 세션형 4단(설문→사전분석→세션→리포트)은 각 신호가 독립 불리언.
+   프로젝트형은 status를 단계(stage)로 서수화해 파생한다 — PLAN §2.1 표를 문자 그대로(수금:완료 필드
+   단독 판정)로 읽으면 실데이터(곽충무=수금 필드 없음)에서 PLAN이 제시한 "3.5/4" 결과가 안 나온다.
+   실측 검증 결과 수금은 "착수(계약)와 같은 시점에 걷는다"는 업무 원칙(케이스 노트 실제 문구: "원칙은
+   대면 미팅일 수금")의 반영으로 봐야 계약 이후 자동 파생되고, 잔금대기는 완료를 취소하는 게 아니라
+   경고 오버레이로만 얹힌다 — 그래야 곽충무가 done+warn(수금)·3.5/4로 나온다. `진척: N/4` 프론트매터가
+   있으면 그 값이 항상 이긴다(선택 오버라이드, §2.1). */
+const clientNm=(f,name)=>f['이름']||name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,'');
+function milestones(c){
+  const f=c.front||{}, nm=clientNm(f,c.name||''), st=readStatus(f);
+  const override=String(f['진척']||'').match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+)/);
+  if(svc(f)==='세션'){
+    const hasSurvey=(state.surveys||[]).some(s=>(s.folder||'').replace(/\s*\(.*/,'').trim()===nm)||/확인/.test(String(f['설문']||''));
+    const hasPrep=(state.prep||[]).some(p=>(p.folder||'').replace(/\s*\(.*/,'').trim()===nm);
+    const d=pickDate(f['세션일']);
+    const sessionDone=!!(d&&d<=today()&&/^(완료|진행중)/.test(st));
+    const reportDone=/발송완료/.test(f['발송상태']||'')||!!f['리포트'];
+    const steps=[
+      {label:'설문',done:hasSurvey},
+      {label:'사전분석',done:hasPrep},
+      {label:'세션',done:sessionDone},
+      {label:'리포트',done:reportDone},
+    ];
+    const doneCount=override?+override[1]:steps.filter(s=>s.done).length;
+    return{kind:'세션',steps,doneCount,total:4,ratio:doneCount/4,terminal:/^완료/.test(st)};
+  }
+  // 프로젝트형: status → 서수 단계. 0=문의/예정/보류/취소(아직 본착수 전, 계약까지만 회색 점등),
+  // 2=진행중(계약·수금·작업까지, 초안 있으면 반칸), 4=완료(전부 풀)
+  const stage=/^완료/.test(st)?4:/^진행중/.test(st)?2:0;
+  const hasDraft=(state.data?.drafts||[]).some(dr=>(dr.folder||'').replace(/\s*\(.*/,'').trim()===nm);
+  const paidExplicit=/^완료/.test(String(f['수금']||''));
+  const jg=jangeum(f);
+  const steps=[
+    {label:'계약',done:true},
+    {label:'수금',done:paidExplicit||stage>=2,warn:!!jg},
+    {label:'작업',done:stage>=2},
+    {label:'초안',half:hasDraft&&stage>=2&&stage<4},
+    {label:'납품',done:stage>=4||!!f['전달일']},
+  ];
+  let doneCount=steps.filter(s=>s.done).length+steps.filter(s=>s.half).length*0.5;
+  if(override)doneCount=+override[1];
+  return{kind:'프로젝트',steps,doneCount,total:4,ratio:doneCount/4,terminal:stage>=4,onHold:stage===0&&/^(보류|취소|drop|중단)/i.test(st)};
+}
 function consultNotices(d,t){
   const D=864e5;
   const rows=d.cases.map(p=>({d:pickDate(p.front['세션일']),nm:p.front['이름']||p.name.replace(/\.md$/,'').replace(/^\d{4}-\d{2}-\d{2}_/,''),sent:/발송완료/.test(p.front['발송상태']||''),path:p.path,front:p.front})).filter(x=>x.d&&svc(x.front)==='세션');
