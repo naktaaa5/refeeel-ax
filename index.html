@@ -2125,26 +2125,25 @@ function lintCompute(notes){
   const orphans=notes.filter(n=>!linked.has(n.base)&&!excl(n));
   return {total:notes.length,broken,emptyGold,orphans};
 }
-function lintSection(title,items,okMsg){
-  let h=`<div class="sec">${title} <span class="note">${items.length}건</span></div><div class="rule"></div>`;
+/* lint 결과를 diag 계열로(PLAN §3.7, 심각도 아이콘) — 비지속 유지(재실행 버튼 1번이 비용의 전부, 0.1-#13) */
+function lintSection(title,items,okMsg,sev){
+  let h=`<div class="cathd">${title} <span style="text-transform:none;letter-spacing:0;font-weight:500">${items.length}건</span></div>`;
   if(!items.length)return h+`<div class="empty" style="padding:18px 0;font-size:14px;text-align:left;color:var(--good)">${okMsg}</div>`;
-  h+=items.slice(0,40).map(it=>`<div class="item clk" data-note="${esc(it.path)}" style="grid-template-columns:1fr auto">
-    <div class="ti">${esc(it.label)} <span class="mt" style="font-weight:400">${esc(it.sub)}</span></div>
-    <div class="mt" style="font-size:11px">${esc(it.path.replace(/\/[^/]+$/,'')||'/')}</div></div>`).join('');
+  h+=items.slice(0,40).map(it=>`<div class="diag clk" data-note="${esc(it.path)}" style="margin-bottom:8px"><div class="diag-ic ${sev}">${diagIconSvg}</div><div class="diag-body"><div class="diag-t">${esc(it.label)}</div><div class="diag-p">${esc(it.sub)}</div><div class="diag-ev">${esc(it.path.replace(/\/[^/]+$/,'')||'/')}</div></div></div>`).join('');
   if(items.length>40)h+=`<div class="evmore" style="padding:11px 2px">+${items.length-40}건 더 — 옵시디언/Claude Code에서 전체 확인</div>`;
   return h;
 }
 function viewLint(){
   const L=state.lint||{};
   let h=head('Ops','볼트 점검','끊긴 링크·빈 골드인·고아 노트를 찾아 보고 — 수정은 옵시디언/Claude Code에서(자동수정 X).')+padOpen;
-  h+=`<div><button class="act" id="lintRun" ${L.running?'disabled':''} style="margin-top:0">${L.running?'점검 중…':'볼트 전체 점검 실행'}</button>${L.at?`<span class="mt" style="margin-left:14px">마지막 점검 ${esc(L.at)}</span>`:''}</div>`;
+  h+=`<div><button class="btn btn-primary" id="lintRun" ${L.running?'disabled':''}>${L.running?'점검 중…':'볼트 전체 점검 실행'}</button>${L.at?`<span class="mt" style="margin-left:14px">마지막 점검 ${esc(L.at)}</span>`:''}</div>`;
   if(L.running)return h+'<div class="empty" style="padding:44px 0">볼트 전체 스캔 중…</div>'+padClose;
   if(!L.result)return h+'<div class="empty" style="padding:40px 0">버튼을 누르면 볼트 전체를 훑어 정합성을 점검해요</div>'+padClose;
   const r=L.result;
-  h+=padClose+wrapStats(stat(r.total,'','스캔 노트',0)+stat(r.broken.length,'','끊긴 링크',r.broken.length?1:0)+stat(r.emptyGold.length,'','빈 골드인',0)+stat(r.orphans.length,'','고아 노트',0))+padOpen;
-  h+=lintSection('🔗 끊긴 링크',r.broken.map(b=>({path:b.from.path,label:b.from.base,sub:'→ [['+b.target+']] 없음'})),'모든 [[링크]]가 실제 노트를 가리켜요 ✓');
-  h+=lintSection('⚠️ 빈 골드인',r.emptyGold.map(n=>({path:n.path,label:n.base,sub:[!n.front['context']?'context':'',!n.front['output']?'output':''].filter(Boolean).join('·')+' 누락'})),'지식 폴더 골드인 게이트가 모두 채워졌어요 ✓');
-  h+=lintSection('👻 고아 노트',r.orphans.map(n=>({path:n.path,label:n.base,sub:'인바운드 링크 0'})),'고아 노트 없어요 ✓');
+  h+=padClose+statRow([['스캔 노트',r.total],['끊긴 링크',r.broken.length],['빈 골드인',r.emptyGold.length],['고아 노트',r.orphans.length]])+padOpen;
+  h+=lintSection('🔗 끊긴 링크',r.broken.map(b=>({path:b.from.path,label:b.from.base,sub:'→ [['+b.target+']] 없음'})),'모든 [[링크]]가 실제 노트를 가리켜요 ✓','serious');
+  h+=lintSection('⚠️ 빈 골드인',r.emptyGold.map(n=>({path:n.path,label:n.base,sub:[!n.front['context']?'context':'',!n.front['output']?'output':''].filter(Boolean).join('·')+' 누락'})),'지식 폴더 골드인 게이트가 모두 채워졌어요 ✓','warning');
+  h+=lintSection('👻 고아 노트',r.orphans.map(n=>({path:n.path,label:n.base,sub:'인바운드 링크 0'})),'고아 노트 없어요 ✓','warning');
   return h+padClose;
 }
 async function runLint(){
