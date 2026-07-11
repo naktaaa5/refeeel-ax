@@ -241,6 +241,17 @@
   /* 콘텐츠 영역 카테고리 헤더 — ops .nav-label 톤(사이드바 .navsec와 동일 스펙, 본문용) */
   .cathd{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:18px 0 8px}
   .cathd:first-child{margin-top:0}
+  /* 실행OS(PLAN §3.9-E) — 원칙 카드(비인터랙티브 읽기용, strat 접두는 ops '전략 판' 톤 차용) */
+  .strat-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .strat-item:last-child{border-bottom:none}
+  .strat-eyebrow{flex:none;font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+  .strat-body{font-size:13px;line-height:1.6;color:var(--ink-2)}
+  /* 스트릭 히트맵 — 최근 14일 달성 dots */
+  .streak-grid{display:flex;gap:4px;flex-wrap:wrap}
+  .streak-dot{width:16px;height:16px;border-radius:4px;background:var(--surface-3)}
+  .streak-dot.partial{background:var(--accent-soft-2)}
+  .streak-dot.full{background:var(--good)}
+  .streak-cap{display:flex;justify-content:space-between;font-size:10px;color:var(--ink-3);margin-top:6px}
   /* ops-view cv-pace 파생 — 진척 스테퍼(PLAN §2.2 원문). milestones(case)가 계산한 값을 렌더 */
   .steps{display:flex;flex-direction:column;gap:5px;min-width:150px}
   .steps-rail{height:4px;border-radius:999px;background:var(--surface-3);overflow:hidden}
@@ -1825,21 +1836,55 @@ async function loadJyPrinciples(root){
     const fh=await dir.getFileHandle('실행OS_원칙.md');
     const body=cardBody(await(await fh.getFile()).text());
     const items=[...body.matchAll(/^\s*\d+\.\s+(.+)$/gm)].map(m=>m[1].trim());
-    return items.length?items:JY_FALLBACK;
-  }catch(e){return JY_FALLBACK;}
+    return items.length?{items,fromNote:true}:{items:JY_FALLBACK,fromNote:false};
+  }catch(e){return {items:JY_FALLBACK,fromNote:false};}
 }
 const JYNUM='①②③④⑤⑥⑦⑧⑨⑩';
+/* 최근 n일 체크 이력 — localStorage jy-YYYY-MM-DD 키(기기 로컬, KV 동기화 시 wireJaeyun이 여기로 내려받음)
+   그대로 스캔. 저장 구조 추가 없이 기존 날짜별 키 조회만으로 스트릭 파생(PLAN §3.9-E, 감사 G-1 부분 해소). */
+function jyStreak(n,total){
+  const days=[];
+  for(let i=n-1;i>=0;i--){
+    const dt=new Date();dt.setDate(dt.getDate()-i);
+    const iso=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+    let cnt=0;try{cnt=(JSON.parse(localStorage.getItem('jy-'+iso)||'[]')||[]).length;}catch(e){}
+    days.push({date:iso,count:cnt,full:total>0&&cnt>=total});
+  }
+  return days;
+}
 function viewJaeyun(){
   if(state.jyPrinciples===undefined){
-    if(!state.jyLoading){state.jyLoading=true;loadJyPrinciples(state.root).then(items=>{state.jyPrinciples=items;state.jyLoading=false;renderView();});}
+    if(!state.jyLoading){state.jyLoading=true;loadJyPrinciples(state.root).then(r=>{state.jyPrinciples=r.items;state.jyFromNote=r.fromNote;state.jyLoading=false;renderView();});}
     return head('실행 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.')+padOpen+'<div class="empty" style="padding:48px 0">원칙 불러오는 중…</div>'+padClose;
   }
   const JY=state.jyPrinciples;
   const key='jy-'+new Date().toISOString().slice(0,10);
   const st=JSON.parse(localStorage.getItem(key)||'[]');
-  let h=head('실행 OS','원칙 · 오늘','이해하고, 비계 씌워라. 매일 초기화.');
-  h+=padOpen+'<div class="rule"></div>'+JY.map((t,i)=>`<div class="ck ${st.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t"><b>${JYNUM[i]||(i+1)}</b> ${esc(t)}</span></div>`).join('')+padClose;
-  return h;
+  const kvOn=!!localStorage.getItem('igpass');
+  let h=`<div class="page-head"><div><div class="kicker">실행 OS</div><h1 class="page-title">원칙 · 오늘</h1><div class="page-sub">이해하고, 비계 씌워라. 매일 초기화.</div></div>
+    <div class="topactions"><span class="pill ${kvOn?'pill-muted':'pill-outline'}">${kvOn?'3기기 동기화':'로컬'}</span></div></div>`;
+  h+=padOpen;
+  // 오늘 체크리스트 + 달성 게이지 (7fr) | 스트릭 히트맵 (5fr)
+  const pct=JY.length?Math.round(st.length/JY.length*100):0;
+  h+=`<div class="cols" style="grid-template-columns:minmax(0,7fr) minmax(0,5fr)">
+    <div class="card" style="padding:16px 20px">
+      <div class="cardhead" style="padding:0 0 10px"><h3>오늘 체크리스트</h3><span class="mt">${st.length}/${JY.length} 달성</span></div>
+      <div class="steps-rail" style="height:6px;margin-bottom:14px"><i style="width:${pct}%;background:${pct>=100?'var(--good)':'var(--accent)'}"></i></div>
+      ${JY.map((t,i)=>`<div class="ck ${st.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t"><b>${JYNUM[i]||(i+1)}</b> ${esc(t)}</span></div>`).join('')}
+    </div>
+    <div class="card" style="padding:16px 20px">
+      <div class="cardhead" style="padding:0 0 10px"><h3>스트릭</h3><span class="mt">최근 14일</span></div>
+      <div class="streak-grid">${jyStreak(14,JY.length).map(d=>`<span class="streak-dot ${d.count===0?'':d.full?'full':'partial'}" title="${d.date} · ${d.count}/${JY.length}"></span>`).join('')}</div>
+      <div class="streak-cap"><span>14일 전</span><span>오늘</span></div>
+    </div>
+  </div>`;
+  // 원칙(읽기 전용, 볼트 노트 렌더)
+  h+=`<div class="card" style="padding:16px 20px;margin-top:16px">
+    <div class="cardhead" style="padding:0 0 10px"><h3>원칙</h3><span class="mt">${state.jyFromNote?'00_대시보드/실행OS_원칙.md':'코드 폴백'}</span></div>
+    ${JY.map((t,i)=>`<div class="strat-item"><span class="strat-eyebrow">${i+1}</span><span class="strat-body">${esc(t)}</span></div>`).join('')}
+    ${state.jyFromNote?'':'<div class="empty" style="text-align:left;margin-top:12px">`00_대시보드/실행OS_원칙.md`를 만들면 볼트에서 편집한 원칙이 3기기에 반영됩니다 — 지금은 코드 폴백 배열을 보고 있어요.</div>'}
+  </div>`;
+  return h+padClose;
 }
 function viewCapture(){
   return head('Inbox','빠른 캡처','떠오른 생각을 볼트 10_Inbox에 바로 저장.')+padOpen+
@@ -2678,14 +2723,26 @@ function wireLearn(){
   const a=$('#lrAgain');if(a)a.onclick=()=>gradeCurrent(false);
 }
 /* 실행OS 체크리스트 KV 동기화 — localStorage 키(jy-YYYY-MM-DD, '매일 초기화')는 그대로 두고, 비번(igpass)
-   있으면 KV(GET /jaeyun, POST /jaeyun-put, {items:[{date,checked:[...]}]})로 3기기 공유. 클릭마다 로컬 전체를
-   그대로 PUT(다른 기기 GET이 없어도 안전 — 로컬이 오늘자의 전체 진실이므로 병합 불필요), 페이지 로드 시 1회
-   GET으로 다른 기기가 먼저 체크한 게 있으면 병합. 비번 없으면 기존 로컬 전용 동작 그대로(회귀 없음). */
+   있으면 KV(GET /jaeyun, POST /jaeyun-put, {items:[{date,checked:[...]}]})로 3기기 공유. 비번 없으면 기존
+   로컬 전용 동작 그대로(회귀 없음).
+   S10b 당시엔 PUT마다 오늘자 1건짜리 배열로 KV를 통째로 덮어써 다른 날짜 기록이 사라졌다 — 스트릭 히트맵
+   (PLAN §3.9-E)이 날짜별 히스토리를 요구해서, 이번에 GET→오늘자만 교체→PUT(병합)으로 고쳤다(최근 60일 보관,
+   그 이상은 정리 — 무한 누적 방지). 페이지 로드 시엔 KV의 모든 날짜를 로컬로 내려받아 스트릭도 갱신한다. */
 function wireJaeyun(){
   const key='jy-'+new Date().toISOString().slice(0,10), date=key.slice(3);
   const pass=localStorage.getItem('igpass');
   const paint=()=>{const st=JSON.parse(localStorage.getItem(key)||'[]');main.querySelectorAll('.ck').forEach(el=>el.classList.toggle('on',st.includes(+el.dataset.i)));};
-  const pushKV=()=>{if(!pass)return;const st=JSON.parse(localStorage.getItem(key)||'[]');fetch(IG_API+'/jaeyun-put',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({items:[{date,checked:st}]})}).catch(()=>{});};
+  const pushKV=()=>{
+    if(!pass)return;
+    const st=JSON.parse(localStorage.getItem(key)||'[]');
+    fetch(IG_API+'/jaeyun',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():{items:[]}).then(data=>{
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-60);
+      let items=(data.items||[]).filter(x=>x.date!==date&&new Date(x.date)>=cutoff);
+      items.push({date,checked:st});
+      items.sort((a,b)=>a.date<b.date?-1:1);
+      return fetch(IG_API+'/jaeyun-put',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({items})});
+    }).catch(()=>{});
+  };
   main.querySelectorAll('.ck').forEach(el=>el.onclick=()=>{
     let st=JSON.parse(localStorage.getItem(key)||'[]');const i=+el.dataset.i;
     st.includes(i)?st=st.filter(x=>x!==i):st.push(i);localStorage.setItem(key,JSON.stringify(st));el.classList.toggle('on');
@@ -2693,8 +2750,15 @@ function wireJaeyun(){
   });
   if(pass){
     fetch(IG_API+'/jaeyun',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():{items:[]}).then(data=>{
-      const entry=(data.items||[]).find(x=>x.date===date);
-      if(entry&&Array.isArray(entry.checked)&&entry.checked.length){localStorage.setItem(key,JSON.stringify(entry.checked));paint();}
+      let changed=false;
+      (data.items||[]).forEach(entry=>{
+        if(!entry.date||!Array.isArray(entry.checked))return;
+        const k='jy-'+entry.date, cur=localStorage.getItem(k);
+        const val=JSON.stringify(entry.checked);
+        if(entry.date===date){if(val!==(cur||'[]')&&entry.checked.length){localStorage.setItem(k,val);changed=true;}}
+        else if(cur!==val){localStorage.setItem(k,val);changed=true;}   // 다른 기기가 채운 과거 날짜 — 스트릭용
+      });
+      if(changed)renderView();else paint();
     }).catch(()=>{});
   }
 }
