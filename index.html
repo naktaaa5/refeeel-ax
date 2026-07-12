@@ -743,17 +743,12 @@
   <div class="navsec">운영</div>
   <div class="nav" data-v="consult"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg> 클라이언트</div>
   <div class="nav" data-v="read"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg> 콘텐츠</div>
-  <div class="nav" data-v="reel"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></svg> 릴스</div>
-  <div class="nav" data-v="kit"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2Z"/><path d="M8 3v18"/></svg> RE:KIT</div>
-  <div class="nav" data-v="queue"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="m17 14 4 4-4 4" transform="translate(0 -4)"/></svg> 발행 큐</div>
   <div class="nav" data-v="cal"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg> 캘린더</div>
   <div class="nav" data-v="ig"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M8.5 7 10 4.8h4L15.5 7"/><circle cx="12" cy="13.3" r="3.3"/></svg> IG 인박스</div>
-  <div class="nav" data-v="acct"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg> 재무 P&L</div>
-  <div class="nav" data-v="revc"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="5" height="9" rx="1"/><rect x="10" y="6" width="5" height="14" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg> 매출×콘텐츠</div>
+  <div class="nav" data-v="acct"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg> 재무</div>
 
   <div class="navsec">나</div>
-  <div class="nav" data-v="exec"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg> 이번 스프린트</div>
-  <div class="nav" data-v="jaeyun"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg> 원칙·오늘</div>
+  <div class="nav" data-v="exec"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg> 실행</div>
   <div class="nav" data-v="learn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M7 9v5c0 1.5 2.5 3 5 3s5-1.5 5-3V9"/></svg> 학습</div>
 
   <div class="navsec">설정</div>
@@ -1360,6 +1355,24 @@ function wireConsult(){
 }
 /* ═══════════════ RE:KIT ═══════════════ */
 /* kit 재스킨(PLAN §3.7, B4) — stat 4개→.stat-row, 목록→table 문법. 구조·데이터로직 불변 */
+/* ── 콘텐츠 통합 탭 스트립 — 4뷰(재료/발행큐/RE:KIT/릴스)를 네비 1항목 아래 탭으로 (재기획 P2) ──
+   state.view는 실제 뷰(read/reel/kit/queue) 그대로 유지 → 각 뷰의 기존 배선 불변. 스트립만 상단 주입. */
+const CONTENT_VIEWS=['read','queue','kit','reel'];
+const CONTENT_TABS=[['read','재료'],['queue','발행 큐'],['kit','RE:KIT'],['reel','릴스']];
+const FIN_TABS=[['acct','손익 P&L'],['revc','매출×콘텐츠']];
+const EXEC_TABS=[['exec','스프린트'],['jaeyun','원칙·오늘']];
+// 그룹 → 접힌 네비 항목(대표뷰) + 그 그룹에 속한 실제 뷰들. 활성 표시·병합 배선의 단일 출처.
+const NAV_GROUPS={read:CONTENT_VIEWS,acct:['acct','revc'],exec:['exec','jaeyun']};
+const GROUPED_VIEWS=['read','queue','kit','reel','acct','revc','exec','jaeyun'];
+function grpStrip(tabs,active){return `<div class="pad" style="padding-top:0;padding-bottom:0"><div class="calfilter" style="margin:0 0 10px">`+tabs.map(([k,l])=>`<button data-ctab="${k}" class="chip ${active===k?'on':''}">${esc(l)}</button>`).join('')+`</div></div>`;}
+// 중앙화: renderView가 그룹 뷰 렌더 시 제목 위에 스트립을 앞에 붙인다(뷰 함수 불변, 모든 상태 커버).
+function grpStripFor(v){
+  if(CONTENT_VIEWS.includes(v))return grpStrip(CONTENT_TABS,v);
+  if(NAV_GROUPS.acct.includes(v))return grpStrip(FIN_TABS,v);
+  if(NAV_GROUPS.exec.includes(v))return grpStrip(EXEC_TABS,v);
+  return '';
+}
+function wireGroupTabs(){main.querySelectorAll('[data-ctab]').forEach(b=>b.onclick=()=>nav({view:b.dataset.ctab,readSel:null,learnSel:null,ovPath:null,prepSel:null}));}
 function viewKit(d){
   const rows=d.kits.slice().sort((a,b)=>N(b.front['번호'])-N(a.front['번호']));
   const cat=c=>d.kits.filter(p=>String(p.front['category']||'').toLowerCase()===c).length;
@@ -2927,18 +2940,19 @@ function igRenderReminders(){
 const VIEWS={home:viewHome,consult:viewConsult,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewCal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ig:viewIg};
 const STATIC=['acct','revc','exec','jaeyun','capture','learn','read','ig'];
 function renderView(){
-  document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.v===state.view));
+  document.querySelectorAll('.nav').forEach(n=>{const g=NAV_GROUPS[n.dataset.v];n.classList.toggle('active',n.dataset.v===state.view||(!!g&&g.includes(state.view)));});
   if(!state.root&&!state.remote&&state.view!=='ig')return;
   if(!VIEWS[state.view])state.view='home';   // 폐기된 뷰(구 crm 등)를 가리키는 오래된 히스토리·북마크 방어
   const fn=VIEWS[state.view];
   const d=state.data||{cases:[],kits:[],reels:[],errs:[]};
-  main.innerHTML=state.view==='home'?('<div class="inner">'+fn(d)+'</div>'):('<div class="inner">'+(STATIC.includes(state.view)?fn():fn(d))+'</div>');
+  main.innerHTML=state.view==='home'?('<div class="inner">'+fn(d)+'</div>'):('<div class="inner">'+grpStripFor(state.view)+(STATIC.includes(state.view)?fn():fn(d))+'</div>');
   if(state.view==='home')wireHome(d);
   if(state.view==='jaeyun')wireJaeyun();
   if(state.view==='capture')wireCapture();
   if(state.view==='learn')wireLearn();
   if(state.view==='acct'||state.view==='revc')wirePeriod();
   if(state.view==='read')wireRead();
+  if(GROUPED_VIEWS.includes(state.view))wireGroupTabs();
   if(['cal','gcal','consult','kit','reel'].includes(state.view))wireCalNs();
   if(state.view==='reel')wireReelSort();
   if(state.view==='lint')wireLint();
