@@ -2249,6 +2249,9 @@ const INPUT_DRILLS=[
   ['적용 설계','이 지식을 살아있는 클라이언트 1명에게 적용하면 첫 행동은?'],
   ['관점 전환','같은 주장을 네 고객(셀러) 시점으로 다시 서술해봐.'],
 ];
+async function loadInputVault(root){ // 비번 없는 기기용 폴백: 볼트 json에서 신선분 읽기
+  try{const dir=await getDir(root,['40_프로젝트','통합워크스페이스']);const fh=await dir.getFileHandle('input_fresh.json');const arr=JSON.parse(await(await fh.getFile()).text());return Array.isArray(arr)?arr:[];}catch(e){return [];}
+}
 async function loadInbox(root){
   const out=[];
   try{const dir=await getDir(root,['10_Inbox']);
@@ -2261,7 +2264,8 @@ function viewInput(d){
   const pass=localStorage.getItem('igpass');
   // 신선분(KV) 로드
   if(state.inputFresh===undefined){
-    if(pass){if(!state.inputLoading){state.inputLoading=true;fetch(IG_API+'/input',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():[]).then(a=>{state.inputFresh=Array.isArray(a)?a:[];state.inputLoading=false;renderView();}).catch(()=>{state.inputFresh=[];state.inputLoading=false;renderView();});}}
+    if(pass){if(!state.inputLoading){state.inputLoading=true;fetch(IG_API+'/input',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():[]).then(a=>{const arr=Array.isArray(a)?a:[];if(arr.length){state.inputFresh=arr;state.inputLoading=false;renderView();}else{loadInputVault(state.root).then(v=>{state.inputFresh=v;state.inputLoading=false;renderView();});}}).catch(()=>{loadInputVault(state.root).then(v=>{state.inputFresh=v;state.inputLoading=false;renderView();});});}}
+    else if(state.root){if(!state.inputLoading){state.inputLoading=true;loadInputVault(state.root).then(v=>{state.inputFresh=v;state.inputLoading=false;renderView();});}}
     else state.inputFresh=[];
   }
   // 재료(콘텐츠) 로드 — 재조합용
@@ -2282,7 +2286,7 @@ function viewInput(d){
   // ① 신선분
   h+=`<div class="cathd">① 신선분 <span style="text-transform:none;letter-spacing:0;font-weight:500">새 외부 지식 · 클로드 큐레이션</span></div>`;
   if(state.inputLoading&&!fresh.length){h+=`<div class="empty" style="padding:16px 0">신선분 불러오는 중…</div>`;}
-  else if(!fresh.length){h+=`<div class="empty" style="text-align:left">${pass?'아직 배달된 신선분이 없어요 — 클로드에게 "새 인풋 물어와" 하세요.':'IG 인박스와 같은 비밀번호(3기기 KV)를 설정해야 신선분이 보여요.'}</div>`;}
+  else if(!fresh.length){h+=`<div class="empty" style="text-align:left">아직 배달된 신선분이 없어요 — 클로드에게 "새 인풋 물어와" 하면 채워집니다.${pass?'':'<br><span style="font-size:12px;color:var(--ink-3)">(더 빨리 보려면 IG 인박스와 같은 비밀번호를 이 기기에도 설정하면 3기기 동기화돼요.)</span>'}</div>`;}
   else{
     const showList=(unread.length?unread:fresh).slice(0,4);
     for(const it of showList){
