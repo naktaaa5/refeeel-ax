@@ -811,7 +811,7 @@ function applyTheme(mode){
   localStorage.setItem('ax-theme',mode);
   document.querySelectorAll('[data-theme-pick]').forEach(b=>b.classList.toggle('on',b.dataset.themePick===mode));
 }
-applyTheme(localStorage.getItem('ax-theme')||'system');
+applyTheme(localStorage.getItem('ax-theme')||'dark');
 document.querySelectorAll('[data-theme-pick]').forEach(b=>b.onclick=()=>applyTheme(b.dataset.themePick));
 const state={root:null,view:'home',data:null,writable:false,period:'7d'};
 
