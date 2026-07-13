@@ -748,8 +748,7 @@
   <div class="nav" data-v="acct"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg> 재무</div>
 
   <div class="navsec">나</div>
-  <div class="nav" data-v="exec"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg> 실행</div>
-  <div class="nav" data-v="learn"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M7 9v5c0 1.5 2.5 3 5 3s5-1.5 5-3V9"/></svg> 학습</div>
+  <div class="nav" data-v="input"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg> 인풋</div>
 
   <div class="navsec">설정</div>
   <div class="nav" data-v="capture"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19h7"/><path d="M16 4.5 19.5 8 9 18.5 5 19l.5-4Z"/></svg> 빠른캡처</div>
@@ -997,6 +996,29 @@ function viewHome(d){
     </table>
     ${up.length?'':'<div class="empty">예정된 세션이 없습니다</div>'}
   </div>`;
+  // ── 나 ── (실행 뷰 kill 후 데일리 리추얼 이식: 원칙 체크 + 스트릭 + 인풋 상태. 매일 초기화, 커피 5분)
+  if(state.jyPrinciples===undefined&&state.root&&!state.jyLoading){state.jyLoading=true;loadJyPrinciples(state.root).then(r=>{state.jyPrinciples=r.items;state.jyFromNote=r.fromNote;state.jyLoading=false;renderView();});}
+  const _pass=localStorage.getItem('igpass');
+  if(state.inputFresh===undefined&&_pass&&!state.inputLoading){state.inputLoading=true;fetch(IG_API+'/input',{headers:{'Authorization':'Bearer '+_pass}}).then(r=>r.ok?r.json():[]).then(a=>{state.inputFresh=Array.isArray(a)?a:[];state.inputLoading=false;renderView();}).catch(()=>{state.inputFresh=[];state.inputLoading=false;renderView();});}
+  const JYh=state.jyPrinciples||[], jkey='jy-'+new Date().toISOString().slice(0,10), jst=JSON.parse(localStorage.getItem(jkey)||'[]'), jpct=JYh.length?Math.round(jst.length/JYh.length*100):0;
+  const ifresh=(state.inputFresh||[]).filter(x=>!x.read).length;
+  h+=`<div class="card" style="padding:16px 20px;margin-top:16px">
+    <div class="cardhead" style="padding:0 0 10px"><h3>나</h3><span class="mt">매일 초기화 · 커피 5분</span></div>
+    <div class="cols" style="grid-template-columns:minmax(0,7fr) minmax(0,5fr)">
+      <div>
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:8px">원칙 ${jst.length}/${JYh.length}</div>
+        ${JYh.length?`<div class="steps-rail" style="height:5px;margin-bottom:12px"><i style="width:${jpct}%;background:${jpct>=100?'var(--good)':'var(--accent)'}"></i></div>`+JYh.map((t,i)=>`<div class="ck ${jst.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t">${esc(t)}</span></div>`).join(''):'<div class="mt">원칙 불러오는 중…</div>'}
+      </div>
+      <div>
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:8px">스트릭 · 14일</div>
+        <div class="streak-grid">${jyStreak(14,JYh.length).map(dd=>`<span class="streak-dot ${dd.count===0?'':dd.full?'full':'partial'}" title="${dd.date} · ${dd.count}/${JYh.length}"></span>`).join('')}</div>
+        <div class="streak-cap"><span>14일 전</span><span>오늘</span></div>
+        <div class="clk" data-goto="input" style="margin-top:16px;padding:11px 13px;border-radius:10px;background:var(--surface-2);cursor:pointer;font-size:13px;border-left:3px solid ${ifresh?'var(--good)':'var(--surface-3)'}">
+          ${ifresh?`● 새 인풋 <b>${ifresh}건</b> 대기 — 인풋 ▸`:'인풋: 신선분 소진 · 큐레이션 필요 ▸'}
+        </div>
+      </div>
+    </div>
+  </div>`;
   return h;
 }
 function recentActivity(d){
@@ -1023,6 +1045,8 @@ function sessTableRows(up){
 }
 function wireHome(d){
   igRenderReminders();  // 📌 잊지말 것 (KV, 비번 있을 때만)
+  wireJaeyun();  // '나' 섹션 원칙 체크(.ck data-i) — 실행 뷰에서 이식, 동일 KV 동기화
+  main.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>nav({view:b.dataset.goto}));  // 인풋 바로가기
   // 날짜범위 드롭다운 (탑바 + 차트)
   const toggleDD=(btnId,menuId)=>{const b=$('#'+btnId),m=$('#'+menuId);if(!b||!m)return;b.onclick=e=>{e.stopPropagation();document.querySelectorAll('.ddmenu').forEach(x=>x!==m&&x.classList.remove('show'));m.classList.toggle('show');};};
   toggleDD('rangeBtn','rangeMenu');toggleDD('chartRangeBtn','chartMenu');
@@ -1360,16 +1384,15 @@ function wireConsult(){
 const CONTENT_VIEWS=['read','queue','kit','reel'];
 const CONTENT_TABS=[['read','재료'],['queue','발행 큐'],['kit','RE:KIT'],['reel','릴스']];
 const FIN_TABS=[['acct','손익 P&L'],['revc','매출×콘텐츠']];
-const EXEC_TABS=[['exec','스프린트'],['jaeyun','원칙·오늘']];
 // 그룹 → 접힌 네비 항목(대표뷰) + 그 그룹에 속한 실제 뷰들. 활성 표시·병합 배선의 단일 출처.
-const NAV_GROUPS={read:CONTENT_VIEWS,acct:['acct','revc'],exec:['exec','jaeyun']};
-const GROUPED_VIEWS=['read','queue','kit','reel','acct','revc','exec','jaeyun'];
+// (실행/재윤 그룹은 재기획 P3에서 kill — 원칙 체크·스트릭은 홈 '나' 섹션으로 이식됨)
+const NAV_GROUPS={read:CONTENT_VIEWS,acct:['acct','revc']};
+const GROUPED_VIEWS=['read','queue','kit','reel','acct','revc'];
 function grpStrip(tabs,active){return `<div class="pad" style="padding-top:0;padding-bottom:0"><div class="calfilter" style="margin:0 0 10px">`+tabs.map(([k,l])=>`<button data-ctab="${k}" class="chip ${active===k?'on':''}">${esc(l)}</button>`).join('')+`</div></div>`;}
 // 중앙화: renderView가 그룹 뷰 렌더 시 제목 위에 스트립을 앞에 붙인다(뷰 함수 불변, 모든 상태 커버).
 function grpStripFor(v){
   if(CONTENT_VIEWS.includes(v))return grpStrip(CONTENT_TABS,v);
   if(NAV_GROUPS.acct.includes(v))return grpStrip(FIN_TABS,v);
-  if(NAV_GROUPS.exec.includes(v))return grpStrip(EXEC_TABS,v);
   return '';
 }
 function wireGroupTabs(){main.querySelectorAll('[data-ctab]').forEach(b=>b.onclick=()=>nav({view:b.dataset.ctab,readSel:null,learnSel:null,ovPath:null,prepSel:null}));}
@@ -2212,6 +2235,117 @@ function viewLearn(){
   }
   return h+padClose;
 }
+/* ═══════════════ 인풋 (급식구) — 학습(SRS) 대체 ═══════════════
+   낙타=인풋 구동형: 병목은 retention이 아니라 intake. 3접시로 매일 배급.
+   ① 신선분 = 클로드/에이전트가 관심기둥으로 큐레이션한 외부자료(KV /input, push).
+   ② 재조합 = 살아있는 기획 ⨯ 안 이어진 '메모 있는' 재료(세렌디피티) + 요일 드릴.
+   ③ 소화 = 10_Inbox 미소화 캡처 최고참 1건. */
+const PILLAR_LABEL={AX:'AX·자동화','브랜딩':'브랜딩','릴스':'릴스·숏폼','셀러':'셀러·커머스'};
+const PILLAR_COL={AX:'#0d9aa8','브랜딩':'var(--accent)','릴스':'#8b5cf6','셀러':'#e0791b'};
+const INPUT_DRILLS=[
+  ['논술 단락','오늘 신선분의 핵심 주장 하나를 골라 200자로 반박하거나 옹호해봐.'],
+  ['강제 유추','아래 [기획]⨯[재료]의 공통 구조를 한 문장으로 뽑아봐.'],
+  ['소크라테스','이 연결을 한 줄로 쓰고, 스스로 "왜?"를 두 번 파고들어봐.'],
+  ['적용 설계','이 지식을 살아있는 클라이언트 1명에게 적용하면 첫 행동은?'],
+  ['관점 전환','같은 주장을 네 고객(셀러) 시점으로 다시 서술해봐.'],
+];
+async function loadInbox(root){
+  const out=[];
+  try{const dir=await getDir(root,['10_Inbox']);
+    for await(const[name,h]of dir.entries()){if(h.kind==='file'&&name.endsWith('.md')&&!name.startsWith('_')){const f=await h.getFile();out.push({name,base:name.replace(/\.md$/,''),mtime:f.lastModified});}}
+  }catch(e){}
+  out.sort((a,b)=>a.mtime-b.mtime); // 오래된 것(최고참) 먼저
+  return out;
+}
+function viewInput(d){
+  const pass=localStorage.getItem('igpass');
+  // 신선분(KV) 로드
+  if(state.inputFresh===undefined){
+    if(pass){if(!state.inputLoading){state.inputLoading=true;fetch(IG_API+'/input',{headers:{'Authorization':'Bearer '+pass}}).then(r=>r.ok?r.json():[]).then(a=>{state.inputFresh=Array.isArray(a)?a:[];state.inputLoading=false;renderView();}).catch(()=>{state.inputFresh=[];state.inputLoading=false;renderView();});}}
+    else state.inputFresh=[];
+  }
+  // 재료(콘텐츠) 로드 — 재조합용
+  if(state.content===undefined&&state.root&&!state.contentLoading){state.contentLoading=true;readContent(state.root).then(c=>{state.content=c;state.contentLoading=false;renderView();});}
+  // 인박스 로드 — 소화용
+  if(state.inbox===undefined&&state.root&&!state.inboxLoading){state.inboxLoading=true;loadInbox(state.root).then(x=>{state.inbox=x;state.inboxLoading=false;renderView();});}
+
+  const fresh=state.inputFresh||[], unread=fresh.filter(x=>!x.read), freshCount=unread.length;
+  let h=`<div class="page-head"><div><div class="kicker">Input</div><h1 class="page-title">인풋</h1><div class="page-sub">오늘의 새 지식 3접시 — 흐름이 끊기지 않게. 커피 들고 5분.</div></div>
+    <div class="topactions"><span class="pill ${freshCount?'pill-good':'pill-outline'}">${freshCount?('신선분 '+freshCount+'건'):'신선분 소진'}</span></div></div>`;
+  h+=padOpen;
+  // 굶주림 게이지 — 낙타 진술("유입 끊기면 사고 멈춤")의 직접 계기판
+  const starved=!state.inputLoading&&freshCount===0;
+  h+=`<div class="card" style="padding:13px 18px;margin-bottom:18px;border-left:3px solid ${starved?'var(--critical)':'var(--good)'}">
+    <div style="font-size:13.5px;line-height:1.6"><b style="color:${starved?'var(--critical)':'var(--good)'}">${starved?'⚠ 새 인풋 없음':'● 오늘 새 인풋 도착'}</b>
+    <span style="color:var(--ink-3)"> — ${starved?'큐레이션이 필요해요. 클로드에게 "새 인풋 물어와" 하면 관심 기둥으로 채워집니다.':('클로드가 네 관심 기둥(AX·브랜딩·릴스·셀러)으로 큐레이션한 '+freshCount+'건이 대기 중.')}</span></div></div>`;
+
+  // ① 신선분
+  h+=`<div class="cathd">① 신선분 <span style="text-transform:none;letter-spacing:0;font-weight:500">새 외부 지식 · 클로드 큐레이션</span></div>`;
+  if(state.inputLoading&&!fresh.length){h+=`<div class="empty" style="padding:16px 0">신선분 불러오는 중…</div>`;}
+  else if(!fresh.length){h+=`<div class="empty" style="text-align:left">${pass?'아직 배달된 신선분이 없어요 — 클로드에게 "새 인풋 물어와" 하세요.':'IG 인박스와 같은 비밀번호(3기기 KV)를 설정해야 신선분이 보여요.'}</div>`;}
+  else{
+    const showList=(unread.length?unread:fresh).slice(0,4);
+    for(const it of showList){
+      const col=PILLAR_COL[it.pillar]||'var(--ink-3)';
+      h+=`<div class="card" style="padding:14px 16px;margin-bottom:10px;${it.read?'opacity:.5':''}">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;color:${col}">${esc(PILLAR_LABEL[it.pillar]||it.pillar||'')}</span><span class="mt" style="font-size:10.5px">${esc(it.source||'')} · ${esc(it.date||'')}</span></div>
+        <div style="font-size:15px;font-weight:650;line-height:1.45;margin-bottom:6px">${esc(it.title||'')}</div>
+        <div style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:10px">${esc(it.why||'')}</div>
+        <a class="btn btn-primary" href="${esc(it.url||'#')}" target="_blank" rel="noopener" data-inread="${esc(it.url||'')}">읽기 ↗</a>${it.read?'<span class="mt" style="margin-left:8px">읽음</span>':''}
+      </div>`;
+    }
+    if(unread.length>4)h+=`<div class="evmore" style="padding:8px 2px">+${unread.length-4}건 더 대기</div>`;
+  }
+
+  // ② 재조합
+  h+=`<div class="cathd" style="margin-top:24px">② 재조합 <span style="text-transform:none;letter-spacing:0;font-weight:500">살아있는 기획 ⨯ 안 이어진 재료</span></div>`;
+  const materials=(state.content||[]).filter(c=>reasonOf(c));
+  const projects=(d.cases||[]).filter(p=>svc(p.front)==='프로젝트'&&/진행|작업/.test(readStatus(p.front)||''));
+  const di=new Date().getDate(); // 날짜로 로테이션(같은 날 고정)
+  if(state.contentLoading&&!materials.length){h+=`<div class="empty" style="padding:14px 0">재료 읽는 중…</div>`;}
+  else if(!materials.length||!projects.length){h+=`<div class="empty" style="text-align:left">재조합할 짝이 아직 없어요 — '메모(왜 좋았나) 있는 수집 재료'와 '진행중 기획'이 각각 1개 이상 필요해요.</div>`;}
+  else{
+    const mat=materials[di%materials.length], proj=projects[di%projects.length], drill=INPUT_DRILLS[di%INPUT_DRILLS.length];
+    h+=`<div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <span class="rtag" style="background:var(--accent-soft);color:var(--accent)">기획 · ${esc(proj.front['이름']||proj.base||proj.name||'')}</span>
+        <span style="color:var(--ink-3)">⨯</span>
+        <span class="rtag">재료 · ${esc((mat.front['제목']||mat.name||'').replace(/\.md$/,''))}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--ink-3);margin-bottom:2px">📌 ${esc(reasonOf(mat))}</div>
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-top:14px">오늘의 드릴 · ${esc(drill[0])}</div>
+      <div style="font-size:15px;font-weight:600;line-height:1.5;margin:6px 0 12px">${esc(drill[1])}</div>
+      <textarea id="inDrillA" rows="4" placeholder="내 말로 답해봐 — 두 개를 연결하면 뭐가 나오나?">${esc(state.inDrillA||'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">${SERVER_BASE?'<button class="btn btn-primary" id="inDrillGrade">🤖 AI 피드백</button>':''}<button class="btn btn-ghost" id="inDrillSave">저장</button></div>
+      ${state.inDrillFeedback?`<div class="kicker" style="margin-top:16px;color:var(--accent)">AI 피드백</div><div style="white-space:pre-wrap;font-size:13.5px;line-height:1.8;padding:12px 14px;background:var(--surface-2);border-radius:10px;margin-top:4px">${esc(state.inDrillFeedback)}</div>`:''}
+      <div style="margin-top:12px;font-size:12px;color:var(--ink-3)">쓸 만한 아이디어면 → <b>content-matrix</b>(소재화) · <b>hook</b>(훅) · <b>reel</b>(스크립트)로 이어가.</div>
+    </div>`;
+  }
+
+  // ③ 소화
+  h+=`<div class="cathd" style="margin-top:24px">③ 소화 <span style="text-transform:none;letter-spacing:0;font-weight:500">인박스 미소화 캡처 · 최고참</span></div>`;
+  const inbox=state.inbox||[];
+  if(state.inboxLoading&&!inbox.length){h+=`<div class="empty" style="padding:14px 0">인박스 읽는 중…</div>`;}
+  else if(!inbox.length){h+=`<div class="empty" style="text-align:left">인박스가 비었어요 👏 — 새 생각은 '빠른캡처'로.</div>`;}
+  else{
+    const it=inbox[0], vn=(state.root&&state.root.name)||'RE_FEEEL_Vault';
+    h+=`<div class="card" style="padding:14px 16px">
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">${esc(it.base)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-ghost" target="_blank" href="obsidian://open?vault=${encodeURIComponent(vn)}&file=${encodeURIComponent('10_Inbox/'+it.base)}">옵시디언에서 열기 ↗</a><button class="btn btn-ghost" data-goto="capture">빠른캡처에서 정리 →</button></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--ink-3)">미소화 ${inbox.length}건 — 하나씩 비우면 머리가 가벼워져요.</div>
+    </div>`;
+  }
+  return h+padClose;
+}
+function wireInput(){
+  // 신선분: 링크는 그대로 열리고, 백그라운드로 읽음 표시
+  main.querySelectorAll('[data-inread]').forEach(a=>a.onclick=()=>{const url=a.dataset.inread,p=localStorage.getItem('igpass');if(p&&url)fetch(IG_API+'/input-read',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+p},body:JSON.stringify({url})}).catch(()=>{});const it=(state.inputFresh||[]).find(x=>x.url===url);if(it)it.read=true;});
+  // 드릴 저장/채점
+  const ta=()=>($('#inDrillA')||{}).value||'';
+  const sv=$('#inDrillSave');if(sv)sv.onclick=()=>{state.inDrillA=ta();sv.textContent='저장됨 ✓';setTimeout(()=>{if($('#inDrillSave'))$('#inDrillSave').textContent='저장';},1400);};
+  const gr=$('#inDrillGrade');if(gr)gr.onclick=async()=>{state.inDrillA=ta();if(!state.inDrillA.trim())return;gr.disabled=true;gr.textContent='피드백 받는 중…';try{const r=await fetch(api('/grade'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'두 개념을 연결하는 창의적 사고 훈련이다. 답을 반박·확장하고 더 나은 연결을 제안해줘.',model:'',answer:state.inDrillA})});state.inDrillFeedback=(await r.json()).feedback||'(피드백 없음)';}catch(e){state.inDrillFeedback='연결 실패: '+e.message;}renderView();};
+  main.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>nav({view:b.dataset.goto}));
+}
 /* ═══════════════ 볼트 점검(lint) ═══════════════ */
 const LINT_SKIP=new Set(['80_아카이브','_staging','90_첨부','_tmp_media','_analysis','.obsidian','.git']);
 const IMG_EXT=/\.(png|jpe?g|gif|webp|svg|pdf|mp4|m4a|mov|excalidraw|canvas)$/i;
@@ -2937,8 +3071,8 @@ function igRenderReminders(){
     box.querySelectorAll('[data-rem]').forEach(cb=>cb.onclick=async()=>{try{await fetch(IG_API+'/reminder-toggle',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+pass},body:JSON.stringify({id:cb.dataset.rem})});}catch(e){}});
   }).catch(()=>{box.innerHTML='';});
 }
-const VIEWS={home:viewHome,consult:viewConsult,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewCal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,learn:viewLearn,read:viewRead,lint:viewLint,ig:viewIg};
-const STATIC=['acct','revc','exec','jaeyun','capture','learn','read','ig'];
+const VIEWS={home:viewHome,consult:viewConsult,kit:viewKit,reel:viewReel,cal:viewCal,gcal:viewCal,queue:viewQueue,acct:viewAcct,revc:viewRevContent,exec:viewExec,jaeyun:viewJaeyun,capture:viewCapture,input:viewInput,learn:viewInput,read:viewRead,lint:viewLint,ig:viewIg};
+const STATIC=['acct','revc','exec','jaeyun','capture','read','ig'];
 function renderView(){
   document.querySelectorAll('.nav').forEach(n=>{const g=NAV_GROUPS[n.dataset.v];n.classList.toggle('active',n.dataset.v===state.view||(!!g&&g.includes(state.view)));});
   if(!state.root&&!state.remote&&state.view!=='ig')return;
@@ -2949,7 +3083,7 @@ function renderView(){
   if(state.view==='home')wireHome(d);
   if(state.view==='jaeyun')wireJaeyun();
   if(state.view==='capture')wireCapture();
-  if(state.view==='learn')wireLearn();
+  if(state.view==='input'||state.view==='learn')wireInput();
   if(state.view==='acct'||state.view==='revc')wirePeriod();
   if(state.view==='read')wireRead();
   if(GROUPED_VIEWS.includes(state.view))wireGroupTabs();
