@@ -3007,7 +3007,7 @@ function viewIg(){
   const done=items.filter(isDone);
   const f=state.igFilter||'all';
   // 트리아지 메타
-  h+=`<div class="mt" style="margin:2px 0 12px">마지막 트리아지: ${esc((q.updated||'').slice(0,16).replace('T',' ')||'-')} · <span style="color:var(--ink-3)">새 DM 갱신은 클로드에게 “IG 확인해줘”</span></div>`;
+  h+=`<div class="mt" style="margin:2px 0 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">마지막 트리아지: ${esc((q.updated||'').slice(0,16).replace('T',' ')||'-')} <button class="btn btn-ghost" id="igFetch" style="padding:4px 12px;font-size:12px">🔄 새 DM 당기기</button> <span id="igFetchMsg" style="color:var(--ink-3)"></span></div>`;
   // 필터 탭
   const TABS=[['all','전체',consulting.length+collab.length+personal.length],['consulting','🔥 컨설팅',consulting.length],['collab','🤝 협업',collab.length],['personal','💬 지인',personal.length],['spam','🚫 스팸',spam.length],['done','✅ 완료',done.length]];
   h+=`<div class="calfilter">`+TABS.map(([k,l,n])=>`<button data-igtab="${k}" class="chip ${f===k?'on':''}">${l}${n?` <span style="opacity:.6;font-weight:600">${n}</span>`:''}</button>`).join('')+`</div>`;
@@ -3052,6 +3052,7 @@ function wireIg(){
   const refetch=()=>{state.igQueue=undefined;renderView();};
   const draftOf=id=>{const ta=main.querySelector('[data-igd="'+CSS.escape(id)+'"]');return ta?ta.value:undefined;};
   const sp=$('#igSetPass');if(sp)sp.onclick=()=>{const p=prompt('IG 인박스 비밀번호를 입력하세요');if(p){localStorage.setItem('igpass',p);refetch();}};
+  const ff=$('#igFetch');if(ff)ff.onclick=async()=>{const m=$('#igFetchMsg');ff.disabled=true;ff.textContent='당기는 중…';if(m)m.textContent='인스타에서 새 DM 가져오는 중…';try{const r=await fetch(IG_API+'/ig-fetch',{method:'POST',headers:igHdr()});const j=await r.json();if(j.ok){if(m)m.textContent=`대화 ${j.convos}개 · 새 ${j.added} · 갱신 ${j.updated}`;setTimeout(refetch,700);}else{ff.disabled=false;ff.textContent='🔄 새 DM 당기기';if(m)m.innerHTML='<span style="color:var(--critical)">'+esc(j.msg||'실패')+'</span>';}}catch(e){ff.disabled=false;ff.textContent='🔄 새 DM 당기기';if(m)m.textContent='연결 실패: '+e.message;}};
   const ra=$('#igReauth');if(ra)ra.onclick=()=>{localStorage.removeItem('igpass');refetch();};
   main.querySelectorAll('.igApprove').forEach(b=>b.onclick=async()=>{const id=b.dataset.ig;b.disabled=true;b.textContent='승인 중…';try{await fetch(IG_API+'/ig-approve',{method:'POST',headers:igHdr(),body:JSON.stringify({id,draft:draftOf(id)})});refetch();}catch(e){b.disabled=false;b.textContent='승인';alert('연결 실패: '+e.message);}});
   main.querySelectorAll('.igDismiss').forEach(b=>b.onclick=async()=>{const id=b.dataset.ig;try{await fetch(IG_API+'/ig-dismiss',{method:'POST',headers:igHdr(),body:JSON.stringify({id})});refetch();}catch(e){alert('연결 실패: '+e.message);}});
