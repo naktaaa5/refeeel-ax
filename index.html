@@ -17,8 +17,8 @@
     --floor:#f7f7f8; --surface:#ffffff; --surface-2:#f4f4f5; --surface-3:#ececee;
     --ink:#18181b; --ink-2:#55555e; --ink-3:#8a8a93;
     --line:rgba(24,24,27,.08); --line-strong:rgba(24,24,27,.14);
-    --accent:#5b5bd6; --accent-ink:#4747c2;
-    --accent-soft:rgba(91,91,214,.09); --accent-soft-2:rgba(91,91,214,.16); --on-accent:#ffffff;
+    --accent:#18181b; --accent-ink:#000000;
+    --accent-soft:rgba(24,24,27,.07); --accent-soft-2:rgba(24,24,27,.14); --on-accent:#ffffff;
     /* chart series — 상태색과 절대 혼용 금지 */
     --s1:#2a78d6; --s1-hot:#1c5cab; --s2:#1baf7a;
     --grid:#ececee; --axis:#d6d6da; --meter-track:#d9e7fa;
@@ -36,8 +36,8 @@
     --floor:#0f0f11; --surface:#17171a; --surface-2:#1f1f23; --surface-3:#28282d;
     --ink:#f4f4f5; --ink-2:#a7a7b0; --ink-3:#77777f;
     --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.14);
-    --accent:#7373e0; --accent-ink:#9c9cf0;
-    --accent-soft:rgba(115,115,224,.14); --accent-soft-2:rgba(115,115,224,.24);
+    --accent:#f4f4f5; --accent-ink:#ffffff; --on-accent:#18181b;
+    --accent-soft:rgba(244,244,245,.10); --accent-soft-2:rgba(244,244,245,.18);
     --s1:#3987e5; --s1-hot:#5598e7; --s2:#199e70;
     --grid:#232327; --axis:#333338; --meter-track:#1e3a5c;
     --ord-1:#6da7ec; --ord-2:#2a78d6; --ord-3:#184f95;
@@ -53,8 +53,8 @@
       --floor:#0f0f11; --surface:#17171a; --surface-2:#1f1f23; --surface-3:#28282d;
       --ink:#f4f4f5; --ink-2:#a7a7b0; --ink-3:#77777f;
       --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.14);
-      --accent:#7373e0; --accent-ink:#9c9cf0;
-      --accent-soft:rgba(115,115,224,.14); --accent-soft-2:rgba(115,115,224,.24);
+      --accent:#f4f4f5; --accent-ink:#ffffff; --on-accent:#18181b;
+      --accent-soft:rgba(244,244,245,.10); --accent-soft-2:rgba(244,244,245,.18);
       --s1:#3987e5; --s1-hot:#5598e7; --s2:#199e70;
       --grid:#232327; --axis:#333338; --meter-track:#1e3a5c;
       --ord-1:#6da7ec; --ord-2:#2a78d6; --ord-3:#184f95;
@@ -811,7 +811,7 @@ function applyTheme(mode){
   localStorage.setItem('ax-theme',mode);
   document.querySelectorAll('[data-theme-pick]').forEach(b=>b.classList.toggle('on',b.dataset.themePick===mode));
 }
-applyTheme(localStorage.getItem('ax-theme')||'dark');
+applyTheme(localStorage.getItem('ax-theme')||'system');
 document.querySelectorAll('[data-theme-pick]').forEach(b=>b.onclick=()=>applyTheme(b.dataset.themePick));
 const state={root:null,view:'home',data:null,writable:false,period:'7d'};
 
