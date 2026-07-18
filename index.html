@@ -444,6 +444,7 @@
   .ev:before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:3px;border-radius:2px;background:var(--ink-3)}
   .ev.consult:before{background:var(--accent)}.ev.project:before{background:var(--warning)}.ev.kit:before{background:var(--good)}.ev.reel:before{background:var(--s1)}.ev.gcal:before{background:var(--ink-3)}
   .ev.work:before{background:#0d9aa8}.ev.personal:before{background:var(--ink-3)}.ev.bill:before{background:var(--critical)}
+  .ev.gcol{color:#fff}.ev.gcol:before{display:none}   /* 구글 지정색으로 채운 이벤트 — 좌측바 숨김 */
   /* 통합 캘린더 필터 칩 */
   .calfilter{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 14px}
   .calfilter .chip{font:inherit;font-size:12.5px;font-weight:550;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:6px 14px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;display:inline-flex;align-items:center;gap:6px}
@@ -1904,7 +1905,12 @@ function calMonthGrid(events,ns,viewTog){
   for(let day=1;day<=days;day++){
     const cd=new Date(y,m,day), k=dkey(cd), list=(byDay[k]||[]).sort((a,b)=>order(a)-order(b));
     h+=`<div class="calcell ${cd.getTime()===t.getTime()?'today':''} ${s.sel===k?'sel':''}" data-day="${k}" data-ns="${ns}"${cd.getTime()===t.getTime()?' aria-current="date"':''}><div class="cn">${day}</div>`;
-    list.slice(0,3).forEach(e=>h+=`<div class="ev ${e.kind}${e.path?' clk':''}"${e.path?` data-note="${esc(e.path)}"`:` title="${esc((e.label||'')+' · 구글 캘린더 일정(세션 노트 없음)')}"`}>${esc(e.label)}</div>`);
+    list.slice(0,3).forEach(e=>{
+      const col=e.color||'';   // 구글 이벤트 지정색(colorId→hex) 있으면 블록 자체를 그 색으로 채운다
+      const cs=col?` style="background:${col};color:#fff;border-radius:4px;padding-left:6px"`:'';
+      const attr=e.path?` data-note="${esc(e.path)}"`:` title="${esc((e.label||'')+' · 구글 캘린더 일정(세션 노트 없음)')}"`;
+      h+=`<div class="ev ${e.kind}${e.path?' clk':''}${col?' gcol':''}"${cs}${attr}>${esc(e.label)}</div>`;
+    });
     if(list.length>3)h+=`<div class="evmore">+${list.length-3}</div>`;
     h+=`</div>`;
   }
