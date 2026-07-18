@@ -1163,7 +1163,7 @@ function consultSessionBoard(d,t,plist){
   const seenCal=new Set(noteEv.map(e=>dkey(e.date)+'|'+String(e.label||'').trim()));
   const gcEv=gcalEvents().filter(e=>e.kind==='consult'&&!seenCal.has(dkey(e.date)+'|'+String(e.label||'').trim()));
   h+=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">세션 캘린더</div><div class="cst-sub">이번 달 1:1 일정 · 구글 일정 포함</div></div></div>${calMonthGrid(noteEv.concat(gcEv),'consult')}</div>`;
-  let ev=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">예정 컨설팅</div><div class="cst-sub">다가오는 세션 — 누르면 브리핑</div></div></div>`;
+  const selKey=(state.cal&&state.cal.consult&&state.cal.consult.sel)||null;   // 캘린더에서 클릭한 날짜(dkey)
   const evRow=p=>{
     const nm=p.front['이름']||'';
     const prep=plist.find(x=>x.client===nm&&x.d.getTime()===p.d.getTime());
@@ -1173,12 +1173,32 @@ function consultSessionBoard(d,t,plist){
   // 구글 캘린더에만 있는 예정 세션(케이스 노트 아직 없음 — 백혜진 2차 등). 브리핑 불가라 '노트 만들기' 넛지로.
   const gcUp=gcEv.filter(e=>e.date>=t).sort((a,b)=>a.date-b.date);
   const gcRow=e=>`<div class="cst-ev" style="cursor:default;border-style:dashed"><div class="cst-evd"><span class="n">${md(e.date)}</span><span class="w">${dow(e.date)}</span></div><div class="cst-evb"><div class="ti">${esc(e.label)}</div><div class="cst-evm">${ddayChip(e.date)}<span class="cst-badge warning">세션 노트 없음</span><span class="mt">구글 일정${e.extra?' · '+esc(e.extra):''}</span></div></div></div>`;
-  if(upCases.length||gcUp.length){
-    ev+=upCases.slice(0,5).map(evRow).join('');
-    const rest=upCases.slice(5);
-    if(rest.length)ev+=`<details class="cst-more"><summary>+${rest.length}개 더보기</summary>${rest.map(evRow).join('')}</details>`;
-    ev+=gcUp.map(gcRow).join('');
-  }else ev+=`<div class="empty">예정 세션이 없어요</div>`;
+  let ev;
+  if(selKey){
+    // 날짜 클릭 → 그 날 세션들 + 각자 사전분석 브리핑 / 발행 리포트 URL 동시 표시
+    const [Y,M,D]=selKey.split('-').map(Number), selD=new Date(Y,M,D);
+    const dayEv=noteEv.concat(gcEv).filter(e=>dkey(e.date)===selKey).sort((a,b)=>String(a.time||'')<String(b.time||'')?-1:1);
+    const dayRow=e=>{
+      const nm=e.label, note=e.path?(d.cases||[]).find(p=>p.path===e.path):null;
+      const prep=plist.find(x=>x.client===nm&&dkey(x.d)===selKey);
+      const rpt=note&&/^https?:\/\//.test(String(note.front['리포트']||''))?String(note.front['리포트']):'';
+      let a='';
+      a+=prep?`<span class="cst-badge accent clk" data-prep="${esc(prep.path)}" style="cursor:pointer">사전분석 브리핑 ▸</span>`:`<span class="cst-badge muted">사전분석 없음</span>`;
+      a+=rpt?`<a class="cst-badge good" href="${esc(rpt)}" target="_blank" rel="noopener" style="text-decoration:none">리포트 열기 ↗</a>`:`<span class="cst-badge ${note?'warning':'muted'}">${note?'리포트 미발행':'구글 일정 · 노트 없음'}</span>`;
+      if(note)a+=`<span class="cst-badge muted clk" data-note="${esc(note.path)}" style="cursor:pointer">노트 ▸</span>`;
+      return `<div class="cst-ev" style="cursor:default"><div class="cst-evd"><span class="n">${md(e.date)}</span><span class="w">${dow(e.date)}</span></div><div class="cst-evb"><div class="ti">${esc(nm)}${e.extra?` <span class="mt">${esc(e.extra)}</span>`:''}</div><div class="cst-evm" style="gap:6px;flex-wrap:wrap">${ddayChip(e.date)}${a}</div></div></div>`;
+    };
+    ev=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">${md(selD)} (${dow(selD)}) 세션</div><div class="cst-sub">이 날의 세션 · 사전분석 / 리포트</div></div><span class="cst-badge muted clk" data-clear="consult" style="cursor:pointer">← 전체 예정</span></div>`;
+    ev+=dayEv.length?dayEv.map(dayRow).join(''):`<div class="empty">이 날 세션이 없어요</div>`;
+  }else{
+    ev=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">예정 컨설팅</div><div class="cst-sub">다가오는 세션 — 날짜를 누르면 그 날 사전분석·리포트</div></div></div>`;
+    if(upCases.length||gcUp.length){
+      ev+=upCases.slice(0,5).map(evRow).join('');
+      const rest=upCases.slice(5);
+      if(rest.length)ev+=`<details class="cst-more"><summary>+${rest.length}개 더보기</summary>${rest.map(evRow).join('')}</details>`;
+      ev+=gcUp.map(gcRow).join('');
+    }else ev+=`<div class="empty">예정 세션이 없어요</div>`;
+  }
   h+=ev+`</div></div>`;
   /* ── Row 2: 확인 요망(diag 문법 — cst-nrow 폐기, PLAN §3.2) | 할 일 ── */
   h+=`<div class="cst-g2">`;
