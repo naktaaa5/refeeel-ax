@@ -1053,7 +1053,12 @@ function viewHome(d){
   </div>`;
   h+=`</div></details>`;   // 전체 개요 details 닫기
   // ── 나 ── (실행 뷰 kill 후 데일리 리추얼 이식: 원칙 체크 + 스트릭 + 인풋 상태. 매일 초기화, 커피 5분)
-  if(state.jyPrinciples===undefined&&state.root&&!state.jyLoading){state.jyLoading=true;loadJyPrinciples(state.root).then(r=>{state.jyPrinciples=r.items;state.jyFromNote=r.fromNote;state.jyLoading=false;renderView();});}
+  // 볼트가 있으면 노트에서 읽고, 없으면(원격·모바일) 기본 원칙으로 즉시 채운다.
+  // 이전엔 로더가 state.root에 걸려 있어 원격 모드에선 영원히 '원칙 불러오는 중…'에 멈췄다.
+  if(state.jyPrinciples===undefined&&!state.jyLoading){
+    if(state.root){state.jyLoading=true;loadJyPrinciples(state.root).then(r=>{state.jyPrinciples=r.items;state.jyFromNote=r.fromNote;state.jyLoading=false;renderView();});}
+    else{state.jyPrinciples=JY_FALLBACK;state.jyFromNote=false;}
+  }
   const _pass=localStorage.getItem('igpass');
   if(state.inputFresh===undefined&&_pass&&!state.inputLoading){state.inputLoading=true;fetch(IG_API+'/input',{headers:{'Authorization':'Bearer '+_pass}}).then(r=>r.ok?r.json():[]).then(a=>{state.inputFresh=Array.isArray(a)?a:[];state.inputLoading=false;renderView();}).catch(()=>{state.inputFresh=[];state.inputLoading=false;renderView();});}
   const JYh=state.jyPrinciples||[], jkey='jy-'+new Date().toISOString().slice(0,10), jst=JSON.parse(localStorage.getItem(jkey)||'[]'), jpct=JYh.length?Math.round(jst.length/JYh.length*100):0;
@@ -1063,7 +1068,7 @@ function viewHome(d){
     <div class="cols" style="grid-template-columns:minmax(0,7fr) minmax(0,5fr)">
       <div>
         <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:8px">원칙 ${jst.length}/${JYh.length}</div>
-        ${JYh.length?`<div class="steps-rail" style="height:5px;margin-bottom:12px"><i style="width:${jpct}%;background:${jpct>=100?'var(--good)':'var(--accent)'}"></i></div>`+JYh.map((t,i)=>`<div class="ck ${jst.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t">${esc(t)}</span></div>`).join(''):'<div class="mt">원칙 불러오는 중…</div>'}
+        ${JYh.length?`<div class="steps-rail" style="height:5px;margin-bottom:12px"><i style="width:${jpct}%;background:${jpct>=100?'var(--good)':'var(--accent)'}"></i></div>`+JYh.map((t,i)=>`<div class="ck ${jst.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t">${esc(t)}</span></div>`).join(''):(state.jyLoading?'<div class="mt">원칙 불러오는 중…</div>':'<div class="mt">원칙이 비어 있어 — <code>00_대시보드/실행OS_원칙.md</code> 확인</div>')}
       </div>
       <div>
         <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:8px">스트릭 · 14일</div>
@@ -1196,7 +1201,10 @@ function consultSessionBoard(d,t,plist){
       a+=prep?`<span class="cst-badge accent clk" data-prep="${esc(prep.path)}" style="cursor:pointer">사전분석 브리핑 ▸</span>`:`<span class="cst-badge muted">사전분석 없음</span>`;
       a+=rpt?`<a class="cst-badge good" href="${esc(rpt)}" target="_blank" rel="noopener" style="text-decoration:none">리포트 열기 ↗</a>`:`<span class="cst-badge ${note?'warning':'muted'}">${note?'리포트 미발행':'구글 일정 · 노트 없음'}</span>`;
       if(note)a+=`<span class="cst-badge muted clk" data-note="${esc(note.path)}" style="cursor:pointer">노트 ▸</span>`;
-      return `<div class="cst-ev" style="cursor:default"><div class="cst-evd"><span class="n">${md(e.date)}</span><span class="w">${dow(e.date)}</span></div><div class="cst-evb"><div class="ti">${esc(nm)}${e.extra?` <span class="mt">${esc(e.extra)}</span>`:''}</div><div class="cst-evm" style="gap:6px;flex-wrap:wrap">${ddayChip(e.date)}${a}</div></div></div>`;
+      // 이름 클릭 → 사전분석 브리핑(없으면 케이스 노트) 열기
+      const nameAttr=prep?`data-prep="${esc(prep.path)}"`:(note?`data-note="${esc(note.path)}"`:'');
+      const nameHtml=nameAttr?`<span class="clk" ${nameAttr} style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${esc(nm)}</span>`:esc(nm);
+      return `<div class="cst-ev" style="cursor:default"><div class="cst-evd"><span class="n">${md(e.date)}</span><span class="w">${dow(e.date)}</span></div><div class="cst-evb"><div class="ti">${nameHtml}${e.extra?` <span class="mt">${esc(e.extra)}</span>`:''}</div><div class="cst-evm" style="gap:6px;flex-wrap:wrap">${ddayChip(e.date)}${a}</div></div></div>`;
     };
     ev=`<div class="cst-card"><div class="cst-chd"><div><div class="cst-tt">${md(selD)} (${dow(selD)}) 세션</div><div class="cst-sub">이 날의 세션 · 사전분석 / 리포트</div></div><span class="cst-badge muted clk" data-clear="consult" style="cursor:pointer">← 전체 예정</span></div>`;
     ev+=dayEv.length?dayEv.map(dayRow).join(''):`<div class="empty">이 날 세션이 없어요</div>`;
