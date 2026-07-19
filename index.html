@@ -1061,23 +1061,19 @@ function viewHome(d){
   }
   const _pass=localStorage.getItem('igpass');
   if(state.inputFresh===undefined&&_pass&&!state.inputLoading){state.inputLoading=true;fetch(IG_API+'/input',{headers:{'Authorization':'Bearer '+_pass}}).then(r=>r.ok?r.json():[]).then(a=>{state.inputFresh=Array.isArray(a)?a:[];state.inputLoading=false;renderView();}).catch(()=>{state.inputFresh=[];state.inputLoading=false;renderView();});}
-  const JYh=state.jyPrinciples||[], jkey='jy-'+new Date().toISOString().slice(0,10), jst=JSON.parse(localStorage.getItem(jkey)||'[]'), jpct=JYh.length?Math.round(jst.length/JYh.length*100):0;
+  // '나' — REPLAN §6-1 원안대로 "원칙 오늘의 한 줄"만. 6개 체크박스+스트릭은 죽은 '실행 OS' 뷰 잔재였고,
+  // 원칙은 매일 체크할 종류가 아니라(격언) 읽고 방향 잡는 것 → 하루 한 줄 회전으로 축소.
+  const JYh=state.jyPrinciples||[];
   const ifresh=(state.inputFresh||[]).filter(x=>!x.read).length;
-  h+=`<div class="card" style="padding:16px 20px;margin-top:16px">
-    <div class="cardhead" style="padding:0 0 10px"><h3>나</h3><span class="mt">매일 초기화 · 커피 5분</span></div>
-    <div class="cols" style="grid-template-columns:minmax(0,7fr) minmax(0,5fr)">
-      <div>
-        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:8px">원칙 ${jst.length}/${JYh.length}</div>
-        ${JYh.length?`<div class="steps-rail" style="height:5px;margin-bottom:12px"><i style="width:${jpct}%;background:${jpct>=100?'var(--good)':'var(--accent)'}"></i></div>`+JYh.map((t,i)=>`<div class="ck ${jst.includes(i)?'on':''}" data-i="${i}"><span class="box">✓</span><span class="t">${esc(t)}</span></div>`).join(''):(state.jyLoading?'<div class="mt">원칙 불러오는 중…</div>':'<div class="mt">원칙이 비어 있어 — <code>00_대시보드/실행OS_원칙.md</code> 확인</div>')}
-      </div>
-      <div>
-        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:8px">스트릭 · 14일</div>
-        <div class="streak-grid">${jyStreak(14,JYh.length).map(dd=>`<span class="streak-dot ${dd.count===0?'':dd.full?'full':'partial'}" title="${dd.date} · ${dd.count}/${JYh.length}"></span>`).join('')}</div>
-        <div class="streak-cap"><span>14일 전</span><span>오늘</span></div>
-        <div class="clk" data-goto="input" style="margin-top:16px;padding:11px 13px;border-radius:10px;background:var(--surface-2);cursor:pointer;font-size:13px;border-left:3px solid ${ifresh?'var(--good)':'var(--surface-3)'}">
-          ${ifresh?`● 새 인풋 <b>${ifresh}건</b> 대기 — 인풋 ▸`:'인풋: 신선분 소진 · 큐레이션 필요 ▸'}
-        </div>
-      </div>
+  const doy=Math.floor((t-new Date(t.getFullYear(),0,0))/864e5);
+  const jyToday=JYh.length?JYh[doy%JYh.length]:'';
+  h+=`<div class="card" style="padding:14px 20px;margin-top:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+    ${jyToday?`<div style="flex:1;min-width:250px">
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:4px">오늘의 원칙</div>
+      <div style="font-size:14.5px;font-weight:600;line-height:1.5">${esc(jyToday)}</div>
+    </div>`:''}
+    <div class="clk" data-goto="input" style="padding:10px 13px;border-radius:10px;background:var(--surface-2);cursor:pointer;font-size:13px;border-left:3px solid ${ifresh?'var(--good)':'var(--surface-3)'}">
+      ${ifresh?`● 새 인풋 <b>${ifresh}건</b> 대기 — 인풋 ▸`:'인풋: 신선분 소진 · 큐레이션 필요 ▸'}
     </div>
   </div>`;
   return h;
