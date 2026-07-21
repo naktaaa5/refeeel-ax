@@ -2620,7 +2620,12 @@ function prepList(){
   }).filter(p=>p.d&&p.d>=PREP_FROM);
 }
 function prepCase(p){
-  const cs=(state.data?.cases||[]).filter(c=>(c.front['이름']||'')===p.client);
+  /* 폴더 스코프 매칭이 정본 — 같은 클라이언트에 폴더가 두 개(핸들 없는 구 스텁 + 핸들 붙은 신규) 남아 있으면
+     이름/클라이언트 필드만으로는 옛 스텁과 뒤섞인다(2026-07 김민경 사례: 신규 노트가 '이름' 필드를 안 씀+
+     구 스텁 폴더에 같은 날짜 케이스가 남아 있어 옛 노트가 매칭됐다). 사전분석과 같은 폴더 안의 케이스만 본다. */
+  const dir='70_컨설팅케이스/클라이언트/'+p.folder+'/';
+  let cs=(state.data?.cases||[]).filter(c=>(c.path||'').startsWith(dir));
+  if(!cs.length)cs=(state.data?.cases||[]).filter(c=>(c.front['이름']||c.front['클라이언트']||'')===p.client);   // 폴더 매칭 0건이면 이름/클라이언트 필드로 폴백
   return cs.find(c=>{const d=pickDate(c.front['세션일']);return d&&d.getTime()===p.d.getTime();})
     ||cs.sort((a,b)=>(pickDate(b.front['세션일'])||0)-(pickDate(a.front['세션일'])||0))[0]||null;
 }
