@@ -966,6 +966,23 @@ function focusOne(d,t,rh){
   // 6) 다 채움
   return {sev:'ok',title:'오늘 급한 건 없어 👏',sub:'세션·마감·발행 리듬 다 정리됨 — 인풋 채우거나 다음 기획으로',cta:'인풋으로',goto:'input'};
 }
+/* 주간 회고 카드 — weekly-retro-gen.sh(매일 07시)가 만든 주간회고.json 표시. */
+function weeklyRetroCard(wr){
+  if(!wr)return '';
+  const proj=(wr.projects||[]).slice(0,6).map(p=>`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line)">
+    <b style="font-size:13.5px">${esc(p.name)}</b>
+    <span class="mt">${esc(p.lastAgo||'')} · 커밋 ${p.commitCount||0}</span>
+    ${p.wip?`<span class="cst-badge warning">미완${p.dirty?' · 미커밋 '+p.dirty:''}${p.ahead?' · 미푸시 '+p.ahead:''}</span>`:`<span class="cst-badge good">정리됨</span>`}
+    ${p.task?`<span class="mt">🎯 ${esc(p.task)}</span>`:''}
+  </div>`).join('');
+  const unf=(wr.unfinished||[]).slice(0,8).map(u=>`<div style="padding:5px 0;font-size:13px;line-height:1.5"><span style="color:var(--warning);font-weight:700">□</span> <b>${esc(u.name)}</b> <span class="mt">— ${esc(u.desc)}</span></div>`).join('');
+  const lbl=t=>`<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin:4px 0 4px">${t}</div>`;
+  return `<div class="card" style="padding:18px 20px;margin-top:16px">
+    <div class="cardhead" style="padding:0 0 12px"><h3>주간 회고</h3><span class="mt">최근 7일 · 매일 07시 갱신${wr.generated?' · '+esc(String(wr.generated).slice(0,16).replace('T',' ')):''}</span></div>
+    ${lbl('이번 주 작업')}${proj||'<div class="empty">기록 없음</div>'}
+    ${unf?lbl('미완료')+unf:''}
+  </div>`;
+}
 /* home — "오늘 하나" 포커스 + (접어둔) 전체 개요. */
 function viewHome(d){
   const t=today();
@@ -1052,6 +1069,9 @@ function viewHome(d){
     ${up.length?'':'<div class="empty">예정된 세션이 없습니다</div>'}
   </div>`;
   h+=`</div></details>`;   // 전체 개요 details 닫기
+  // ── 주간 회고 (최근 7일 작업 + 미완료 · 매일 07시 launchd 갱신) ──
+  if(state.weeklyRetro===undefined&&state.root&&!state.wrLoading){state.wrLoading=true;readWeeklyRetro(state.root).then(r=>{state.weeklyRetro=r;state.wrLoading=false;renderView();});}
+  h+=weeklyRetroCard(state.weeklyRetro);
   // ── 나 ── (실행 뷰 kill 후 데일리 리추얼 이식: 원칙 체크 + 스트릭 + 인풋 상태. 매일 초기화, 커피 5분)
   // 볼트가 있으면 노트에서 읽고, 없으면(원격·모바일) 기본 원칙으로 즉시 채운다.
   // 이전엔 로더가 state.root에 걸려 있어 원격 모드에선 영원히 '원칙 불러오는 중…'에 멈췄다.
@@ -1901,6 +1921,7 @@ async function fetchGcalLive(){
   }catch(e){state._gcalLiveErr='네트워크 연결 실패';}
   return null;
 }
+async function readWeeklyRetro(root){try{const dir=await getDir(root,['00_대시보드']);const fh=await dir.getFileHandle('주간회고.json');return JSON.parse(await(await fh.getFile()).text());}catch(e){return null;}}
 async function readGcal(root){
   const live=await fetchGcalLive();
   if(live){state.gcalErr='';state.gcalErrKind='';return live;}
@@ -3338,7 +3359,7 @@ async function loadRemote(url){
   state.remote=true;state.writable=false;
   state.data={cases:(j.data&&j.data.cases)||[],kits:(j.data&&j.data.kits)||[],reels:(j.data&&j.data.reels)||[],errs:[]};
   state.content=j.content||[];state.cards=j.cards||[];state.acct=j.acct||{raw:[],daily:[],exp:[]};
-  state.gcal=(await fetchGcalLive())||j.gcal||[];state.prep=j.prep||[];state.surveys=j.surveys||[];state.generated=j.generated||'';state.stageState=j.stageState||null;
+  state.gcal=(await fetchGcalLive())||j.gcal||[];state.prep=j.prep||[];state.surveys=j.surveys||[];state.generated=j.generated||'';state.stageState=j.stageState||null;state.weeklyRetro=j.weeklyRetro||null;
 }
 async function bootRemote(){
   try{
