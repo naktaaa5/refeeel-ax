@@ -977,18 +977,24 @@ function focusOne(d,t,rh){
 /* 주간 회고 카드 — weekly-retro-gen.sh(매일 07시)가 만든 주간회고.json 표시. */
 function weeklyRetroCard(wr){
   if(!wr)return '';
-  const proj=(wr.projects||[]).slice(0,6).map(p=>`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line)">
+  const stCol={순항:'good',작업중:'accent',막힘:'warning',방치:'serious',정리됨:'muted'};
+  const lbl=t=>`<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin:14px 0 7px">${t}</div>`;
+  const threads=wr.threads||[];
+  const thHtml=`<div style="display:flex;flex-wrap:wrap;gap:6px">${threads.map(t=>`<span class="cst-badge muted" style="font-weight:600">${esc(t)}</span>`).join('')}</div>`;
+  const proj=(wr.projects||[]).map(p=>`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--line)">
+    <span class="cst-badge ${stCol[p.status]||'muted'}">${esc(p.status||'')}</span>
     <b style="font-size:13.5px">${esc(p.name)}</b>
-    <span class="mt">${esc(p.lastAgo||'')} · 커밋 ${p.commitCount||0}</span>
-    ${p.wip?`<span class="cst-badge warning">미완${p.dirty?' · 미커밋 '+p.dirty:''}${p.ahead?' · 미푸시 '+p.ahead:''}</span>`:`<span class="cst-badge good">정리됨</span>`}
+    <span class="mt">${esc(p.lastAgo||'')}${p.commitCount?' · 커밋 '+p.commitCount:''}${p.dirty?' · 미커밋 '+p.dirty:''}</span>
     ${p.task?`<span class="mt">🎯 ${esc(p.task)}</span>`:''}
   </div>`).join('');
-  const unf=(wr.unfinished||[]).slice(0,8).map(u=>`<div style="padding:5px 0;font-size:13px;line-height:1.5"><span style="color:var(--warning);font-weight:700">□</span> <b>${esc(u.name)}</b> <span class="mt">— ${esc(u.desc)}</span></div>`).join('');
-  const lbl=t=>`<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin:4px 0 4px">${t}</div>`;
+  const unf=(wr.unfinished||[]).map(u=>`<div style="padding:5px 0;font-size:13px"><span class="cst-badge ${stCol[u.status]||'warning'}">${esc(u.status||'미완')}</span> <b>${esc(u.name)}</b> <span class="mt"> ${esc(u.desc||'')}</span></div>`).join('');
+  const memo=(wr.memoNotes||[]).map(m=>`<div style="padding:4px 0;font-size:12.5px;line-height:1.5"><span class="mt">·</span> <b>${esc(m.name)}</b> <span class="mt">— ${esc(String(m.desc||'').slice(0,70))}</span></div>`).join('');
   return `<div class="card" style="padding:18px 20px;margin-top:16px">
-    <div class="cardhead" style="padding:0 0 12px"><h3>주간 회고</h3><span class="mt">최근 7일 · 매일 07시 갱신${wr.generated?' · '+esc(String(wr.generated).slice(0,16).replace('T',' ')):''}</span></div>
-    ${lbl('이번 주 작업')}${proj||'<div class="empty">기록 없음</div>'}
-    ${unf?lbl('미완료')+unf:''}
+    <div class="cardhead" style="padding:0 0 4px"><h3>주간 회고</h3><span class="mt">최근 ${wr.days||7}일 · 매일 07시 갱신${wr.generated?' · '+esc(String(wr.generated).slice(0,16).replace('T',' ')):''}</span></div>
+    ${threads.length?lbl('지금 굴리는 작업 '+threads.length+'개')+thHtml:''}
+    ${proj?lbl('코드 작업 상태')+proj:''}
+    ${unf?lbl('미완료 (활동 기준)')+unf:''}
+    ${memo?lbl('메모에 남긴 것 · 참고(최신 아닐 수 있음)')+memo:''}
   </div>`;
 }
 /* home — "오늘 하나" 포커스 + (접어둔) 전체 개요. */
