@@ -636,6 +636,12 @@
   .bfch .tt{font-size:17px;font-weight:700;letter-spacing:-.01em}
   .bfch .nt{font-size:12px;color:var(--ink-3);margin-left:auto;font-weight:500;text-align:right}
   .bfcb{padding:2px 20px 18px}
+  .bfcombo{margin:14px 0 4px}
+  .bfcombo-leg{display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
+  .bfcombo-leg .lgi{display:inline-flex;align-items:center;gap:6px}
+  .bfcombo-leg .lg-bar{width:11px;height:11px;border-radius:2px;background:var(--surface-3);border:1px solid var(--line)}
+  .bfcombo-leg .lg-line{width:16px;border-top:2.4px solid var(--s1)}
+  .bfcap{font-size:13px;line-height:1.6;color:var(--ink-2);margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
   .bfcb>.bfgapl:first-child{margin-top:14px}
   .bfcb>.bfq:first-child{margin-top:14px}
   .bfcb details.bfmat{background:var(--floor)}
@@ -854,17 +860,19 @@ async function loadData(root){
   ]);
   // 컨설팅 준비 소스: 사전분석.md + 설문_*.md + *초안* (70_컨설팅케이스/클라이언트/<이름 (핸들)>/…)
   // drafts: milestones()의 프로젝트형 '초안 반칸' 파생 신호(PLAN §2.1) — 신설 필드 없이 파일명만으로 감지
-  const prep=[],surveys=[],drafts=[];
+  // accts: 사전분석 세션 폴더의 계정데이터_<핸들>.md — 월별 발행·참여 표(브리핑 콤보차트 소스). 없으면 조용히 빈 배열.
+  const prep=[],surveys=[],drafts=[],accts=[];
   for(const p of con.items){
     const parts=p.path.split('/');
     if(parts[1]!=='클라이언트')continue;
     if(parts.length===5&&p.name==='사전분석.md'&&/사전분석/.test(parts[3]))prep.push({...p,folder:parts[2],session:parts[3]});
     else if(parts.length===4&&/^설문/.test(p.name))surveys.push({...p,folder:parts[2]});
+    else if(parts.length===5&&/^계정데이터_.*\.md$/.test(p.name))accts.push({...p,folder:parts[2],session:parts[3]});
     if(/초안/.test(p.name))drafts.push({folder:parts[2],path:p.path});
   }
   return{cases:con.items.filter(p=>p.front['세션일']),kits:kit.items.filter(p=>p.front['번호']),
     reels:reel.items.filter(p=>p.front['조회수']!==undefined||p.front['shortcode']),
-    prep,surveys,drafts,
+    prep,surveys,drafts,accts,
     errs:[con,kit,reel].filter(x=>x.error).map(x=>x.error)};
 }
 
@@ -2798,6 +2806,55 @@ function bfEvidence(evid){
   if(parts.length<2)return `<div class="bfevi"><span class="bfevi-k">근거</span> ${mdInline(evid)}</div>`;
   return `<div class="bfevi"><div class="bfevi-k">근거</div>`+parts.map(p=>`<div class="bfli">${mdInline(p.trim())}</div>`).join('')+(concl?`<div class="bfevi-c">${mdInline(concl)}</div>`:'')+`</div>`;
 }
+/* 계정데이터_<핸들>.md 의 '## 월별 추이' 표 파싱 → {rows:[{m,posts,eng}], trend}.
+   표 없거나 데이터<2행이면 null(브리핑에서 조용히 스킵). 열: 월 | 발행 | 좋아요합 | 댓글합 | 참여합 | 중앙참여 */
+function parseMonthly(raw){
+  const lines=(raw||'').split(/\r?\n/);
+  const idx=lines.findIndex(l=>/^#{1,6}\s*월별 추이/.test(l));
+  if(idx<0)return null;
+  const rows=[];let trend='';
+  for(let i=idx+1;i<lines.length;i++){
+    const l=lines[i];
+    if(/^#{1,6}\s/.test(l))break;                                   // 다음 섹션 → 종료
+    const tm=l.match(/\*\*추세:?\*\*\s*(.+)/); if(tm){trend=(l.replace(/^\s*[-*]\s*/,'')).replace(/\*\*/g,'').trim();continue;}
+    if(!/^\s*\|/.test(l))continue;
+    const arr=l.split('|');
+    const cells=arr.slice(1,arr.length-1).map(c=>c.trim());          // 앞뒤 파이프 밖의 빈칸 제거
+    if(cells.length<5)continue;
+    if(!/^\d{4}-\d{2}$/.test(cells[0]))continue;                    // 헤더·구분선 스킵
+    const posts=+cells[1].replace(/,/g,''), eng=+cells[4].replace(/,/g,'');
+    if(!isFinite(posts)||!isFinite(eng))continue;
+    rows.push({m:cells[0],posts,eng});
+  }
+  if(rows.length<2)return null;
+  return {rows,trend};
+}
+/* 콤보 차트(막대=발행 중립 · 선=참여 액센트) — 기존 barChart/sparkline 톤·CSS 변수 재사용, 반응형 SVG 문자열.
+   피크(참여 최대월) 강조: --s1-hot 도트 + 값 라벨. viewBox 고정, width:100%로 라이트/다크·모바일 대응. */
+function prepComboChart(mon){
+  const rows=mon.rows, n=rows.length;
+  const W=680,H=240,L=32,R=32,T=24,B=38, iw=W-L-R, ih=H-T-B;
+  const maxP=(Math.max(...rows.map(r=>r.posts))||1)*1.28;
+  const maxE=(Math.max(...rows.map(r=>r.eng))||1)*1.18;
+  const cx=i=>L+iw*(i+0.5)/n;
+  const bw=Math.min(34, iw/n*0.46);
+  const yP=v=>T+ih-ih*(v/maxP), yE=v=>T+ih-ih*(v/maxE);
+  const peak=rows.reduce((a,r,i)=>r.eng>=rows[a].eng?i:a,0);
+  const mlab=m=>String(+m.slice(5,7))+'월';
+  let g='';
+  for(let k=0;k<=3;k++){const y=(T+ih*k/3).toFixed(1);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>`;}
+  rows.forEach((r,i)=>{const x=(cx(i)-bw/2).toFixed(1),y=yP(r.posts),bh=Math.max(1,(T+ih)-y);
+    g+=`<rect x="${x}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="var(--surface-3)"/>`;
+    g+=`<text x="${cx(i).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${r.posts}</text>`;});
+  const dpath=rows.map((r,i)=>(i?'L':'M')+cx(i).toFixed(1)+' '+yE(r.eng).toFixed(1)).join(' ');
+  g+=`<path d="${dpath}" fill="none" stroke="var(--s1)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+  rows.forEach((r,i)=>{const pk=i===peak;
+    g+=`<circle cx="${cx(i).toFixed(1)}" cy="${yE(r.eng).toFixed(1)}" r="${pk?4.6:2.8}" fill="${pk?'var(--s1-hot)':'var(--s1)'}"${pk?' stroke="var(--surface)" stroke-width="1.6"':''}/>`;});
+  const pr=rows[peak];
+  g+=`<text x="${cx(peak).toFixed(1)}" y="${(yE(pr.eng)-9).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--s1-hot)">${pr.eng.toLocaleString()}</text>`;
+  rows.forEach((r,i)=>{g+=`<text x="${cx(i).toFixed(1)}" y="${H-14}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${mlab(r.m)}</text>`;});
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="월별 발행량과 참여 추이">${g}</svg>`;
+}
 function prepBriefing(p){
   const c=prepCase(p),f=c?c.front:{},sv=prepSurvey(p);
   const pp=prepParsed(p);
@@ -2823,6 +2880,17 @@ function prepBriefing(p){
       ${c?`<button class="bfbtn" data-note-raw="${esc(c.path)}">케이스 노트</button>`:''}
       <a class="bfbtn" href="${esc(obs)}" target="_blank">옵시디언 ↗</a>
     </div></div>`;
+  /* ── 발행·참여 콤보 차트 — 계정데이터_*.md 있을 때만(없으면 조용히 스킵). 상단 배치 = 브리핑 열자마자 추세가 보임 ── */
+  const acctData=(state.accts||[]).find(a=>a.folder===p.folder&&a.session===p.session)
+    ||(state.accts||[]).find(a=>a.folder===p.folder);
+  const mon=acctData?parseMonthly(acctData.raw):null;
+  if(mon){
+    h+=`<section class="bfcard" style="margin-top:16px"><div class="bfch"><span class="no">◷</span><span class="tt">발행 · 참여 추이</span><span class="nt">최근 ${mon.rows.length}개월 · 막대=발행 · 선=참여</span></div><div class="bfcb">`
+      +`<div class="bfcombo">${prepComboChart(mon)}</div>`
+      +`<div class="bfcombo-leg"><span class="lgi"><span class="lg-bar"></span>월 발행량</span><span class="lgi"><span class="lg-line"></span>월 참여 총량(좋아요+댓글) · 피크 강조</span></div>`
+      +(mon.trend?`<div class="bfcap">${mdInline(mon.trend)}</div>`:'')
+      +`</div></section>`;
+  }
   /* ── 점프 바: 세션 중엔 읽기가 아니라 찾기 ── */
   const jumps=[['bf1','고민'],['bf2','진단 · 근거'],['bf3','원포인트'],['bf4','진행 대본']]
     .concat(pp.orphans.map((o,i)=>['bf6'+i,o.title.replace(/^\d+\.\s*/,'').split(/\s*[—·]\s*/)[0].trim()]))
@@ -3387,7 +3455,7 @@ async function connect(handle){
   $('#vstat').innerHTML=state.writable?'볼트 연결됨 · 읽기 + 쓰기':'볼트 연결됨 · 읽기만';
   $('#reload').style.display='';
   main.innerHTML='<div class="gate"><div class="empty">볼트 읽는 중…</div></div>';
-  state.data=await loadData(handle);state.prep=state.data.prep||[];state.surveys=state.data.surveys||[];state.cards=await readCards(handle);state.acct=await readAcct(handle);state.content=await readContent(handle);state.gcal=await readGcal(handle);
+  state.data=await loadData(handle);state.prep=state.data.prep||[];state.surveys=state.data.surveys||[];state.accts=state.data.accts||[];state.cards=await readCards(handle);state.acct=await readAcct(handle);state.content=await readContent(handle);state.gcal=await readGcal(handle);
   const _cs=(state.data.cases||[]).length,_kt=(state.data.kits||[]).length,_rl=(state.data.reels||[]).length;
   $('#vstat').innerHTML=(state.writable?'볼트 연결됨 · 읽기+쓰기':'볼트 연결됨 · 읽기만')+` · 케이스 ${_cs}·킷 ${_kt}·릴스 ${_rl}`;
   if(!_cs){const errs=(state.data.errs||[]);main.innerHTML='<div class="gate"><div class="warn">이 폴더에서 컨설팅 케이스를 못 찾았어요.<br><b>볼트 최상위 폴더</b>(RE_FEEEL_Vault 또는 낙타)를 골랐는지 확인해줘 — 하위 폴더를 고르면 이렇게 비어 보여요.'+(errs.length?'<br><span style="color:var(--ink-3);font-size:12px">못 읽은 경로: '+esc(errs.join(', '))+'</span>':'')+'</div></div>';return;}
@@ -3398,7 +3466,7 @@ $('#pick').onclick=async()=>{
   if(state.saved){try{await connect(state.saved);if(state.data&&(state.data.cases||[]).length)return;/* 비었으면 새 폴더 고르기로 폴백 */}catch(e){console.error('[AX] saved-handle 재연결 실패 — 폴더 다시 고르기로 넘어감',e);}}
   if(!window.showDirectoryPicker){if(!await bootRemote())main.innerHTML='<div class="gate"><div class="warn">폴더 열기가 안 되는 기기예요(모바일). 원격 데이터(ax_data.json)도 못 받았어요 — 호스팅 후 다시 열어줘.</div></div>';return;}
   try{await connect(await window.showDirectoryPicker());}catch(e){if(e.name!=='AbortError')main.innerHTML='<div class="gate"><div class="warn">'+esc(e.message||e.name)+'<br><span style="color:var(--ink-3);font-size:12px">file:// 이면 localhost로 열어야 해요.</span></div></div>';}};
-$('#reload').onclick=async()=>{if(state.remote){await bootRemote();return;}if(state.root){state.data=await loadData(state.root);state.prep=state.data.prep||[];state.surveys=state.data.surveys||[];state.cards=await readCards(state.root);state.acct=await readAcct(state.root);state.content=await readContent(state.root);state.gcal=await readGcal(state.root);state.learnQueue=undefined;state.exec=undefined;renderView();}};
+$('#reload').onclick=async()=>{if(state.remote){await bootRemote();return;}if(state.root){state.data=await loadData(state.root);state.prep=state.data.prep||[];state.surveys=state.data.surveys||[];state.accts=state.data.accts||[];state.cards=await readCards(state.root);state.acct=await readAcct(state.root);state.content=await readContent(state.root);state.gcal=await readGcal(state.root);state.learnQueue=undefined;state.exec=undefined;renderView();}};
 /* ═══════════════ 히스토리(브라우저 뒤로가기) ═══════════════ */
 function curScene(){return {v:state.view,r:state.readSel||null,l:state.learnSel||null,o:state.ovPath||null,p:state.prepSel||null};}
 function applyCurrent(){
