@@ -750,7 +750,7 @@
 
   <div class="navsec">운영</div>
   <div class="nav" data-v="consult"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg> 클라이언트</div>
-  <div class="nav" data-v="read"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg> 콘텐츠</div>
+  <div class="nav" data-v="reel"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg> 콘텐츠</div>
   <div class="nav" data-v="cal"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg> 캘린더</div>
   <div class="nav" data-v="ig"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M8.5 7 10 4.8h4L15.5 7"/><circle cx="12" cy="13.3" r="3.3"/></svg> IG 인박스</div>
   <div class="nav" data-v="acct"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg> 재무</div>
@@ -1526,11 +1526,11 @@ function wireConsult(){
 /* ── 콘텐츠 통합 탭 스트립 — 4뷰(재료/발행큐/RE:KIT/릴스)를 네비 1항목 아래 탭으로 (재기획 P2) ──
    state.view는 실제 뷰(read/reel/kit/queue) 그대로 유지 → 각 뷰의 기존 배선 불변. 스트립만 상단 주입. */
 const CONTENT_VIEWS=['read','queue','kit','reel'];
-const CONTENT_TABS=[['read','재료'],['queue','발행 큐'],['kit','RE:KIT'],['reel','릴스']];
+const CONTENT_TABS=[['reel','릴스·성과'],['read','재료'],['queue','발행 큐'],['kit','RE:KIT']];
 const FIN_TABS=[['acct','손익 P&L'],['revc','매출×콘텐츠']];
 // 그룹 → 접힌 네비 항목(대표뷰) + 그 그룹에 속한 실제 뷰들. 활성 표시·병합 배선의 단일 출처.
 // (실행/재윤 그룹은 재기획 P3에서 kill — 원칙 체크·스트릭은 홈 '나' 섹션으로 이식됨)
-const NAV_GROUPS={read:CONTENT_VIEWS,acct:['acct','revc']};
+const NAV_GROUPS={reel:CONTENT_VIEWS,acct:['acct','revc']};
 const GROUPED_VIEWS=['read','queue','kit','reel','acct','revc'];
 function grpStrip(tabs,active){return `<div class="pad" style="padding-top:0;padding-bottom:0"><div class="calfilter" style="margin:0 0 10px">`+tabs.map(([k,l])=>`<button data-ctab="${k}" class="chip ${active===k?'on':''}">${esc(l)}</button>`).join('')+`</div></div>`;}
 // 중앙화: renderView가 그룹 뷰 렌더 시 제목 위에 스트립을 앞에 붙인다(뷰 함수 불변, 모든 상태 커버).
@@ -3466,7 +3466,12 @@ $('#pick').onclick=async()=>{
   if(state.saved){try{await connect(state.saved);if(state.data&&(state.data.cases||[]).length)return;/* 비었으면 새 폴더 고르기로 폴백 */}catch(e){console.error('[AX] saved-handle 재연결 실패 — 폴더 다시 고르기로 넘어감',e);}}
   if(!window.showDirectoryPicker){if(!await bootRemote())main.innerHTML='<div class="gate"><div class="warn">폴더 열기가 안 되는 기기예요(모바일). 원격 데이터(ax_data.json)도 못 받았어요 — 호스팅 후 다시 열어줘.</div></div>';return;}
   try{await connect(await window.showDirectoryPicker());}catch(e){if(e.name!=='AbortError')main.innerHTML='<div class="gate"><div class="warn">'+esc(e.message||e.name)+'<br><span style="color:var(--ink-3);font-size:12px">file:// 이면 localhost로 열어야 해요.</span></div></div>';}};
-$('#reload').onclick=async()=>{if(state.remote){await bootRemote();return;}if(state.root){state.data=await loadData(state.root);state.prep=state.data.prep||[];state.surveys=state.data.surveys||[];state.accts=state.data.accts||[];state.cards=await readCards(state.root);state.acct=await readAcct(state.root);state.content=await readContent(state.root);state.gcal=await readGcal(state.root);state.learnQueue=undefined;state.exec=undefined;renderView();}};
+$('#reload').onclick=async()=>{if(state.remote){await bootRemote();return;}if(state.root){state.data=await loadData(state.root);state.prep=state.data.prep||[];state.surveys=state.data.surveys||[];state.accts=state.data.accts||[];state.cards=await readCards(state.root);state.acct=await readAcct(state.root);state.content=await readContent(state.root);state.gcal=await readGcal(state.root);state.weeklyRetro=undefined;state.learnQueue=undefined;state.exec=undefined;renderView();}};
+// 자동 새로고침 — "이 하나만 열어두면 알아서 최신". 탭 포커스 복귀 시 + 15분 주기. 수동 리로드 없앰.
+let _lastAuto=Date.now();
+const autoRefresh=()=>{if(Date.now()-_lastAuto<30000)return;if(!state.remote&&!state.root)return;_lastAuto=Date.now();const rb=$('#reload');if(rb)rb.click();};
+window.addEventListener('focus',autoRefresh);
+setInterval(autoRefresh,900000);
 /* ═══════════════ 히스토리(브라우저 뒤로가기) ═══════════════ */
 function curScene(){return {v:state.view,r:state.readSel||null,l:state.learnSel||null,o:state.ovPath||null,p:state.prepSel||null};}
 function applyCurrent(){
